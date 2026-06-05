@@ -81,7 +81,7 @@ zeigt das Transkript live und liest die fertige Antwort per TTS vor.
 
 ## Deployment
 
-Docker-Compose-Service `offerte`, bindet nur `127.0.0.1:8003`, Volume `./data:/data`.
-nginx auf dem Host terminiert Let's-Encrypt-TLS und proxyt weiter
+Docker-Compose-Service `web` (Image/Container `offerte`), bindet nur `127.0.0.1:8003`,
+Volume `./data:/data`. nginx auf dem Host terminiert Let's-Encrypt-TLS und proxyt weiter
 (`setup/offerte.ralfwbalz.ch`; SSE: `proxy_buffering off`). Voraussetzung: DNS-A-Record
 `offerte.ralfwbalz.ch`. Eigenes Git-Repo → GitHub `plebsapps/offerte` (privat).
