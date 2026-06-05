@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Offerten-Assistent – ralfwbalz.ch</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Offerten-Assistent</div>
+    <div class="subbrand">ralfwbalz.ch</div>
+  </header>
+
+  <main class="wrap">
+    <div id="speechBanner" class="banner hidden">
+      Ihr Browser unterstützt keine Spracheingabe. Sie können trotzdem schreiben –
+      für Sprache empfiehlt sich Google&nbsp;Chrome.
+    </div>
+
+    <section class="intro" id="intro">
+      <h1>Lassen Sie uns Ihr IT-Projekt planen</h1>
+      <p>
+        Sprechen oder schreiben Sie mit dem Assistenten. Er klärt mit Ihnen alle relevanten
+        Punkte und erstellt am Ende eine Offerten-Grundlage. Ralf&nbsp;W.&nbsp;Balz prüft und
+        kalkuliert diese persönlich und meldet sich anschliessend bei Ihnen.
+      </p>
+      <button id="startBtn" class="btn-primary">Gespräch starten</button>
+    </section>
+
+    <section class="chat hidden" id="chat">
+      <div id="messages" class="messages" aria-live="polite"></div>
+
+      <form id="composer" class="composer" autocomplete="off">
+        <button type="button" id="micBtn" class="mic" title="Sprechen" aria-label="Sprechen">🎤</button>
+        <input type="text" id="textInput" placeholder="Antwort schreiben oder Mikrofon nutzen…" autocomplete="off">
+        <input type="text" id="website" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button type="submit" class="btn-send" title="Senden">Senden</button>
+      </form>
+      <div class="controls">
+        <label class="toggle">
+          <input type="checkbox" id="ttsToggle" checked> Antworten vorlesen
+        </label>
+        <span id="statusHint" class="hint"></span>
+      </div>
+    </section>
+
+    <p class="legal">
+      Mit der Nutzung stimmen Sie der Verarbeitung Ihrer Angaben zur Offerten-Erstellung zu.
+      Siehe <a href="/impressum">Datenschutz &amp; Impressum</a>.
+    </p>
+  </main>
+
+  <script src="/static/js/app.js?v=1"></script>
+</body>
+</html>

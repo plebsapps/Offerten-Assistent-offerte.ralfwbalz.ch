@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 2cm; }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; color: #1f2937; font-size: 11pt; line-height: 1.5; }
+  h1 { color: #1B2A4A; font-size: 20pt; margin: 0 0 4px; }
+  h2 { color: #1B2A4A; font-size: 13pt; border-bottom: 2px solid #3B82F6; padding-bottom: 3px; margin: 22px 0 8px; }
+  .meta { color: #64748b; font-size: 9.5pt; margin-bottom: 6px; }
+  .kunde td { padding: 2px 8px 2px 0; vertical-align: top; }
+  .kunde td.label { color: #64748b; font-weight: bold; width: 90px; }
+  ul { margin: 4px 0 4px 0; padding-left: 18px; }
+  li { margin: 2px 0; }
+  .phase { border-left: 3px solid #3B82F6; padding: 4px 0 4px 12px; margin: 8px 0; }
+  .phase .pname { font-weight: bold; color: #1B2A4A; }
+  .phase .paufwand { color: #64748b; font-size: 9.5pt; }
+  .note { background: #f1f5f9; padding: 8px 12px; border-radius: 4px; font-size: 9.5pt; color: #475569; margin-top: 26px; }
+  .footer { margin-top: 18px; color: #94a3b8; font-size: 8.5pt; }
+</style>
+</head>
+<body>
+  <h1>Offerten-Grundlage</h1>
+  <div class="meta">{{ o.projekt_titel }} &middot; erstellt am {{ erstellt }}</div>
+
+  <h2>Auftraggeber</h2>
+  <table class="kunde">
+    <tr><td class="label">Name</td><td>{{ o.kunde.name or '–' }}</td></tr>
+    <tr><td class="label">Firma</td><td>{{ o.kunde.firma or '–' }}</td></tr>
+    <tr><td class="label">E-Mail</td><td>{{ o.kunde.email or '–' }}</td></tr>
+    <tr><td class="label">Telefon</td><td>{{ o.kunde.telefon or '–' }}</td></tr>
+  </table>
+
+  <h2>Zusammenfassung</h2>
+  <p>{{ o.zusammenfassung }}</p>
+
+  {% if o.ziele %}
+  <h2>Ziele</h2>
+  <ul>{% for z in o.ziele %}<li>{{ z }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if o.scope_enthalten %}
+  <h2>Leistungsumfang (enthalten)</h2>
+  <ul>{% for s in o.scope_enthalten %}<li>{{ s }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if o.scope_nicht_enthalten %}
+  <h2>Nicht enthalten</h2>
+  <ul>{% for s in o.scope_nicht_enthalten %}<li>{{ s }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if o.anforderungen %}
+  <h2>Anforderungen</h2>
+  <ul>{% for a in o.anforderungen %}<li>{{ a }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if o.phasen %}
+  <h2>Vorgehen / Phasen</h2>
+  {% for p in o.phasen %}
+  <div class="phase">
+    <div class="pname">{{ p.name }}</div>
+    <div>{{ p.ergebnisse }}</div>
+    <div class="paufwand">Grober Aufwand: {{ p.grober_aufwand }}</div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if o.zeitrahmen %}
+  <h2>Zeitrahmen</h2>
+  <p>{{ o.zeitrahmen }}</p>
+  {% endif %}
+
+  {% if o.budget_angabe_kunde %}
+  <h2>Budgetvorstellung des Kunden</h2>
+  <p>{{ o.budget_angabe_kunde }}</p>
+  {% endif %}
+
+  {% if o.annahmen %}
+  <h2>Annahmen</h2>
+  <ul>{% for a in o.annahmen %}<li>{{ a }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if o.offene_punkte %}
+  <h2>Offene Punkte</h2>
+  <ul>{% for a in o.offene_punkte %}<li>{{ a }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if o.naechste_schritte %}
+  <h2>Nächste Schritte</h2>
+  <ul>{% for n in o.naechste_schritte %}<li>{{ n }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <div class="note">
+    Dies ist eine im Gespräch erfasste Offerten-Grundlage und enthält bewusst keine Preise.
+    Die verbindliche Kalkulation und das Angebot erfolgen persönlich durch Ralf&nbsp;W.&nbsp;Balz.
+  </div>
+  <div class="footer">Ralf W. Balz &middot; ralfwbalz.ch</div>
+</body>
+</html>

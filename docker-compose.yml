@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    image: offerte
+    container_name: offerte
+    restart: unless-stopped
+    env_file: .env
+    # SQLite-DB und erzeugte PDFs persistent ablegen
+    volumes:
+      - ./data:/data
+    # Nur an localhost binden – nginx auf dem Host macht das TLS-Reverse-Proxy.
+    ports:
+      - "127.0.0.1:8003:8003"

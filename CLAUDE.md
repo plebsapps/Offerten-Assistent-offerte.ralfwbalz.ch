@@ -1,0 +1,70 @@
+# CLAUDE.md
+
+Diese Datei leitet Claude Code (claude.ai/code) bei der Arbeit in diesem Repository an.
+
+## Was das ist
+
+KI-gestützter **Offerten-Assistent** für ralfwbalz.ch, erreichbar unter
+**offerte.ralfwbalz.ch**. Ein potenzieller Kunde plant im Gespräch ein IT-Projekt; am Ende
+erzeugt der Agent eine strukturierte Offerten-Grundlage. Ein- und Ausgabe können per Sprache
+erfolgen (Browser), zusätzlich läuft ein Chat-Protokoll mit. Alle nutzerseitigen Texte sind
+deutsch – das bitte beibehalten.
+
+## Commands
+
+```bash
+# Primär: Docker (entspricht Produktion)
+docker compose up --build -d   # Image bauen, Container auf 127.0.0.1:8003 starten
+docker compose logs -f         # Logs verfolgen
+docker compose down            # Container stoppen/entfernen
+
+# Alternativ lokal (venv + uvicorn). WeasyPrint braucht System-Libs
+# (libpango, libcairo, libgdk-pixbuf, libffi) – ggf. per apt installieren.
+./start.sh                 # .venv anlegen, Deps installieren, uvicorn auf 127.0.0.1:8003
+./start.sh --reload        # Auto-Reload für lokale Entwicklung
+```
+
+Keine Tests/Linter konfiguriert.
+
+## Konfiguration (`.env`, siehe `.env.example`)
+
+- Anthropic: `ANTHROPIC_API_KEY`
+- SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `CONTACT_EMAIL`
+- `PUBLIC_BASE_URL` (für den Freigabe-Link in der Mail an Ralf)
+- `DATA_DIR` (SQLite-DB + PDFs; im Container `/data`, lokal `./data`)
+- `MAX_SESSIONS_PER_IP`, `MAX_TURNS_PER_SESSION` (Kosten-/Missbrauchsschutz)
+
+## Architektur
+
+- **`main.py`** – FastAPI: liefert die UI, den SSE-Chat-Endpunkt `POST /chat` und den
+  Freigabe-Endpunkt `GET /freigabe/{token}`. Rate-Limit pro IP und Turn-Limit pro Session,
+  Honeypot-Feld `website`.
+- **`agent.py`** – Claude (`claude-opus-4-8`, adaptive thinking, streaming). System-Prompt
+  führt das Beratungsgespräch (gesprochene Sprache, eine Frage pro Antwort, **keine Preise**).
+  Tool `offerte_erstellen` (structured) extrahiert am Ende die Offerten-Grundlage.
+- **`offer.py`** – Pydantic-/Dict-Daten → WeasyPrint-PDF → SMTP. Wichtig: Versand-Flow.
+- **`db.py`** – SQLite (`sessions`, `messages`, `offers`).
+
+### Sprache
+Das LLM hat **keine** eigene Sprachfunktion. STT (`SpeechRecognition`) und TTS
+(`SpeechSynthesis`) laufen im Browser (`static/js/app.js`, `de-CH`). Ohne Web Speech API
+(z. B. Firefox) funktioniert die Texteingabe weiter; ein Banner empfiehlt Chrome.
+
+### Versand-Flow (bewusst zweistufig)
+Bei Tool-Aufruf wird die Offerte als PDF gerendert und **zuerst nur an Ralf**
+(`CONTACT_EMAIL`) gesendet – inklusive Chat-Transkript und einem tokenisierten
+**Freigabe-Link**. Erst wenn Ralf `GET /freigabe/{token}` aufruft, geht die Offerte an den
+Auftraggeber (`offer.release_to_customer`, einmalig einlösbar). Den automatischen Versand an
+den Kunden nicht ohne Rücksprache aktivieren.
+
+### Chat-Stream
+`POST /chat` liefert Server-Sent Events. `agent.stream_reply` yieldet Events
+(`token`, `offer_created`, `done`, `error`, `limit`); `static/js/app.js` parst den Stream,
+zeigt das Transkript live und liest die fertige Antwort per TTS vor.
+
+## Deployment
+
+Docker-Compose-Service `offerte`, bindet nur `127.0.0.1:8003`, Volume `./data:/data`.
+nginx auf dem Host terminiert Let's-Encrypt-TLS und proxyt weiter
+(`setup/offerte.ralfwbalz.ch`; SSE: `proxy_buffering off`). Voraussetzung: DNS-A-Record
+`offerte.ralfwbalz.ch`. Eigenes Git-Repo → GitHub `plebsapps/offerte` (privat).

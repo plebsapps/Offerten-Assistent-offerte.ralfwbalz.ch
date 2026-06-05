@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Offerte-Freigabe – ralfwbalz.ch</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Offerten-Assistent</div>
+    <div class="subbrand">ralfwbalz.ch</div>
+  </header>
+  <main class="wrap">
+    <div class="chat" style="padding:28px">
+      {% if status == "gesendet" %}
+        <h1 style="color:#16a34a;margin-top:0">Offerte freigegeben ✓</h1>
+        <p>Die Offerte zu <strong>{{ titel }}</strong> wurde soeben an
+           <strong>{{ kunde.email }}</strong> gesendet.</p>
+      {% elif status == "bereits" %}
+        <h1 style="color:#1B2A4A;margin-top:0">Bereits freigegeben</h1>
+        <p>Diese Offerte zu <strong>{{ titel }}</strong> wurde bereits an
+           <strong>{{ kunde.email }}</strong> gesendet. Es wurde nichts erneut versendet.</p>
+      {% elif status == "fehler" %}
+        <h1 style="color:#dc2626;margin-top:0">Versand fehlgeschlagen</h1>
+        <p>Beim Senden an den Auftraggeber ist ein Fehler aufgetreten. Bitte prüfen Sie die
+           Server-Logs oder senden Sie die PDF-Offerte manuell.</p>
+      {% else %}
+        <h1 style="color:#dc2626;margin-top:0">Link ungültig</h1>
+        <p>Dieser Freigabe-Link ist unbekannt oder abgelaufen.</p>
+      {% endif %}
+    </div>
+  </main>
+</body>
+</html>

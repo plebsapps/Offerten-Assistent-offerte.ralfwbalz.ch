@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="de">
+<body style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:20px;color:#333">
+  <h2 style="color:#1B2A4A;border-bottom:3px solid #3B82F6;padding-bottom:10px">
+    Neue Offerten-Grundlage: {{ o.projekt_titel }}
+  </h2>
+
+  <table style="width:100%;border-collapse:collapse;margin:16px 0">
+    <tr><td style="padding:6px 10px;font-weight:bold;width:110px;color:#555">Name</td><td style="padding:6px 10px">{{ o.kunde.name or '–' }}</td></tr>
+    <tr style="background:#f8fafc"><td style="padding:6px 10px;font-weight:bold;color:#555">Firma</td><td style="padding:6px 10px">{{ o.kunde.firma or '–' }}</td></tr>
+    <tr><td style="padding:6px 10px;font-weight:bold;color:#555">E-Mail</td><td style="padding:6px 10px"><a href="mailto:{{ o.kunde.email }}" style="color:#3B82F6">{{ o.kunde.email or '–' }}</a></td></tr>
+    <tr style="background:#f8fafc"><td style="padding:6px 10px;font-weight:bold;color:#555">Telefon</td><td style="padding:6px 10px">{{ o.kunde.telefon or '–' }}</td></tr>
+  </table>
+
+  <h3 style="color:#1B2A4A">Zusammenfassung</h3>
+  <div style="background:#f8fafc;padding:14px;border-left:4px solid #3B82F6;border-radius:4px">{{ o.zusammenfassung }}</div>
+
+  <div style="margin:24px 0;text-align:center">
+    <a href="{{ freigabe_url }}"
+       style="background:#3B82F6;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;display:inline-block;font-weight:bold">
+      Offerte an den Auftraggeber freigeben &amp; senden
+    </a>
+    <p style="color:#94a3b8;font-size:12px;margin-top:8px">
+      Die Offerte wurde <strong>nicht</strong> automatisch an den Kunden gesendet.
+      Sie geht erst nach Klick auf diesen Link an {{ o.kunde.email or 'den Kunden' }}.
+    </p>
+  </div>
+
+  <p style="color:#64748b;font-size:13px">Das vollständige Angebot liegt als PDF im Anhang.</p>
+
+  <h3 style="color:#1B2A4A;margin-top:30px">Gesprächsprotokoll</h3>
+  <div style="background:#f8fafc;padding:14px;border-radius:4px;white-space:pre-line;font-size:13px;color:#475569">{{ transcript }}</div>
+
+  <hr style="margin:26px 0;border:none;border-top:1px solid #e2e8f0">
+  <small style="color:#94a3b8">Erstellt am {{ erstellt }} via offerte.ralfwbalz.ch</small>
+</body>
+</html>

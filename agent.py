@@ -1,0 +1,180 @@
+"""Claude-Agent: führt das Beratungsgespräch und löst am Ende die Offerten-Erstellung aus.
+
+Das LLM (Claude) hat selbst keine Sprachfunktion – Sprache passiert im Browser.
+Hier geht es nur um Text: Gesprächsführung + strukturierte Offerten-Extraktion via Tool.
+"""
+import logging
+
+import anthropic
+
+import db
+import offer
+
+logger = logging.getLogger(__name__)
+
+MODEL = "claude-opus-4-8"
+MAX_TOOL_ROUNDS = 3
+
+SYSTEM_PROMPT = """\
+Du bist der digitale Offerten-Assistent von Ralf W. Balz (ralfwbalz.ch), einem
+unabhängigen IT-Berater und -Entwickler aus der Schweiz. Deine Aufgabe: mit einem
+potenziellen Kunden ein geplantes IT-Projekt vollständig durchsprechen und am Ende eine
+strukturierte Offerten-Grundlage erfassen.
+
+WICHTIG – Sprache & Stil:
+- Antworte ausschliesslich auf Deutsch (Schweizer Höflichkeitsform „Sie“).
+- Deine Antworten werden dem Kunden VORGELESEN. Formuliere daher in natürlicher,
+  gesprochener Sprache, kurz und klar. Keine Aufzählungszeichen, keine Markdown-Formatierung,
+  keine langen Monologe. Stelle möglichst nur EINE Frage pro Antwort.
+- Beginne das Gespräch, indem du dich kurz vorstellst und fragst, worum es beim Projekt geht.
+
+Das sollst du im Laufe des Gesprächs klären (nicht als Checkliste abfragen, sondern im
+Gespräch natürlich erheben):
+- Ziel und Problemstellung: Was soll erreicht oder gelöst werden?
+- Zielgruppe / Nutzer der Lösung.
+- Vorhandene Systeme, Daten und nötige Integrationen (Schnittstellen, bestehende Software).
+- Funktionale Anforderungen: Was muss die Lösung konkret können?
+- Nicht-funktionale Anforderungen: Sicherheit, Datenschutz, Verfügbarkeit, Skalierung.
+- Technische Präferenzen oder Einschränkungen (z. B. Hosting, vorgegebene Technologien).
+- Zeitrahmen, Deadlines, Meilensteine.
+- Budgetvorstellung des Kunden (nur ERFRAGEN und festhalten – du machst KEINE eigene
+  Preis- oder Aufwandsberechnung und nennst KEINE Preise).
+- Annahmen und offene Punkte, die später zu klären sind.
+- Kontaktdaten: Name, Firma, E-Mail-Adresse und Telefonnummer des Ansprechpartners.
+
+Regeln:
+- Rechne NICHTS aus und nenne KEINE Preise, Stunden oder Beträge. Die Preisgestaltung macht
+  Ralf persönlich. Wenn der Kunde nach Preisen fragt, erkläre freundlich, dass Ralf die
+  Offerte auf Basis dieses Gesprächs persönlich kalkuliert und sich danach meldet.
+- Frage so lange nach, bis du ein tragfähiges Bild des Projekts UND die Kontaktdaten
+  (insbesondere eine E-Mail-Adresse) hast.
+- Wenn alles Wesentliche geklärt ist, fasse das Projekt in ein, zwei Sätzen mündlich
+  zusammen, frage einmal nach, ob alles korrekt ist, und rufe danach das Werkzeug
+  „offerte_erstellen“ mit allen gesammelten Informationen auf.
+- Nach dem Werkzeug-Aufruf bestätige dem Kunden mündlich, dass die Offerten-Grundlage erstellt
+  und an Ralf zur persönlichen Prüfung und Kalkulation übermittelt wurde, und verabschiede dich.
+- Bleibe beim Thema IT-Projekt-Planung. Auf themenfremde Anfragen reagierst du freundlich,
+  aber lenkst zum Projekt zurück.
+"""
+
+OFFER_TOOL = {
+    "name": "offerte_erstellen",
+    "description": (
+        "Erstellt die strukturierte Offerten-Grundlage aus dem Gespräch und sendet sie an "
+        "Ralf zur Prüfung. Erst aufrufen, wenn das Projekt ausreichend geklärt ist und die "
+        "Kontaktdaten (mindestens E-Mail) vorliegen. Enthält KEINE Preise."
+    ),
+    "input_schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "projekt_titel": {"type": "string", "description": "Kurzer, prägnanter Projekttitel"},
+            "kunde": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "name": {"type": "string"},
+                    "firma": {"type": "string"},
+                    "email": {"type": "string"},
+                    "telefon": {"type": "string"},
+                },
+                "required": ["name", "firma", "email", "telefon"],
+            },
+            "zusammenfassung": {"type": "string", "description": "Kurze Projektzusammenfassung in 2-4 Sätzen"},
+            "ziele": {"type": "array", "items": {"type": "string"}},
+            "scope_enthalten": {"type": "array", "items": {"type": "string"}, "description": "Was ist Teil des Projekts"},
+            "scope_nicht_enthalten": {"type": "array", "items": {"type": "string"}, "description": "Was ist ausdrücklich nicht Teil"},
+            "anforderungen": {"type": "array", "items": {"type": "string"}},
+            "annahmen": {"type": "array", "items": {"type": "string"}},
+            "offene_punkte": {"type": "array", "items": {"type": "string"}},
+            "phasen": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "name": {"type": "string"},
+                        "ergebnisse": {"type": "string"},
+                        "grober_aufwand": {"type": "string", "description": "Grobe Aufwandseinschätzung in Worten, KEINE Preise"},
+                    },
+                    "required": ["name", "ergebnisse", "grober_aufwand"],
+                },
+            },
+            "zeitrahmen": {"type": "string"},
+            "budget_angabe_kunde": {"type": "string", "description": "Vom Kunden genannte Budgetvorstellung, sonst leer"},
+            "naechste_schritte": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": [
+            "projekt_titel", "kunde", "zusammenfassung", "ziele", "scope_enthalten",
+            "scope_nicht_enthalten", "anforderungen", "annahmen", "offene_punkte",
+            "phasen", "zeitrahmen", "budget_angabe_kunde", "naechste_schritte",
+        ],
+    },
+}
+
+_client: anthropic.Anthropic | None = None
+
+
+def _get_client() -> anthropic.Anthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic()  # liest ANTHROPIC_API_KEY aus der Umgebung
+    return _client
+
+
+def stream_reply(session_id: str, history: list[dict]):
+    """Streamt die Agenten-Antwort als Event-Dicts.
+
+    history: Liste von {role, content}. Persistiert am Ende die Assistenz-Antwort und
+    löst bei Bedarf die Offerten-Erstellung aus.
+
+    Yields: {"type": "token", "text": ...} | {"type": "offer_created"} |
+            {"type": "done"} | {"type": "error", "message": ...}
+    """
+    messages: list[dict] = [{"role": m["role"], "content": m["content"]} for m in history]
+    final_text_parts: list[str] = []
+
+    for _ in range(MAX_TOOL_ROUNDS + 1):
+        round_text: list[str] = []
+        with _get_client().messages.stream(
+            model=MODEL,
+            max_tokens=16000,
+            system=SYSTEM_PROMPT,
+            thinking={"type": "adaptive"},
+            output_config={"effort": "medium"},
+            tools=[OFFER_TOOL],
+            messages=messages,
+        ) as stream:
+            for text in stream.text_stream:
+                round_text.append(text)
+                yield {"type": "token", "text": text}
+            final = stream.get_final_message()
+
+        final_text_parts.extend(round_text)
+
+        if final.stop_reason != "tool_use":
+            break
+
+        # Werkzeug-Aufruf(e) abarbeiten und Ergebnis zurückgeben.
+        messages.append({"role": "assistant", "content": final.content})
+        tool_results = []
+        for block in final.content:
+            if block.type != "tool_use":
+                continue
+            try:
+                offer.create_and_send(session_id, block.input)
+                yield {"type": "offer_created"}
+                result_text = "Offerte wurde erstellt und an Ralf zur persönlichen Prüfung gesendet."
+            except Exception as e:  # noqa: BLE001
+                logger.error("Offerten-Erstellung fehlgeschlagen: %s", e)
+                result_text = "Die Offerte konnte technisch nicht erstellt werden."
+            tool_results.append(
+                {"type": "tool_result", "tool_use_id": block.id, "content": result_text}
+            )
+        messages.append({"role": "user", "content": tool_results})
+        # Schleife läuft weiter, damit der Agent die mündliche Abschlussbestätigung gibt.
+
+    final_text = "".join(final_text_parts).strip()
+    if final_text:
+        db.add_message(session_id, "assistant", final_text)
+    yield {"type": "done"}
