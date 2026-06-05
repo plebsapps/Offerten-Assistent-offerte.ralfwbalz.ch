@@ -32,7 +32,8 @@ Keine Tests/Linter konfiguriert.
 - SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `CONTACT_EMAIL`
 - `PUBLIC_BASE_URL` (für den Freigabe-Link in der Mail an Ralf)
 - `DATA_DIR` (SQLite-DB + PDFs; im Container `/data`, lokal `./data`)
-- `MAX_SESSIONS_PER_IP`, `MAX_TURNS_PER_SESSION` (Kosten-/Missbrauchsschutz)
+- `MAX_SESSIONS_PER_IP` (Default 5, gleitendes 1-Stunden-Fenster pro IP),
+  `MAX_TURNS_PER_SESSION` (Default 40 User-Turns) – Kosten-/Missbrauchsschutz
 
 ## Architektur
 
@@ -41,9 +42,15 @@ Keine Tests/Linter konfiguriert.
   Honeypot-Feld `website`.
 - **`agent.py`** – Claude (`claude-opus-4-8`, adaptive thinking, streaming). System-Prompt
   führt das Beratungsgespräch (gesprochene Sprache, eine Frage pro Antwort, **keine Preise**).
-  Tool `offerte_erstellen` (structured) extrahiert am Ende die Offerten-Grundlage.
+  Tool `offerte_erstellen` (structured) extrahiert am Ende die Offerten-Grundlage. Der
+  Aufruf rendert/versendet die Offerte direkt (`offer.create_and_send`); danach läuft die
+  Streaming-Schleife (`MAX_TOOL_ROUNDS`) noch eine Runde weiter, damit Claude die mündliche
+  Abschlussbestätigung gibt. Tool-Fehler werden als `tool_result`-Text zurückgegeben, nicht
+  geworfen.
 - **`offer.py`** – Pydantic-/Dict-Daten → WeasyPrint-PDF → SMTP. Wichtig: Versand-Flow.
-- **`db.py`** – SQLite (`sessions`, `messages`, `offers`).
+- **`db.py`** – SQLite (`sessions`, `messages`, `offers`; WAL-Modus, eine Verbindung pro
+  Aufruf). Die `session_id` wird browserseitig pro Seitenaufruf erzeugt (`crypto.randomUUID`,
+  nicht persistiert) – ein Reload startet daher ein neues Gespräch.
 
 ### Sprache
 Das LLM hat **keine** eigene Sprachfunktion. STT (`SpeechRecognition`) und TTS
@@ -54,8 +61,10 @@ Das LLM hat **keine** eigene Sprachfunktion. STT (`SpeechRecognition`) und TTS
 Bei Tool-Aufruf wird die Offerte als PDF gerendert und **zuerst nur an Ralf**
 (`CONTACT_EMAIL`) gesendet – inklusive Chat-Transkript und einem tokenisierten
 **Freigabe-Link**. Erst wenn Ralf `GET /freigabe/{token}` aufruft, geht die Offerte an den
-Auftraggeber (`offer.release_to_customer`, einmalig einlösbar). Den automatischen Versand an
-den Kunden nicht ohne Rücksprache aktivieren.
+Auftraggeber (`offer.release_to_customer`, idempotent via `released_at`/`mark_released`). Den
+automatischen Versand an den Kunden nicht ohne Rücksprache aktivieren. Das PDF liegt unter
+`DATA_DIR/offers/offerte-{session_id}.pdf` und wird bei der Freigabe wiederverwendet (fehlt
+es, wird neu gerendert).
 
 ### Chat-Stream
 `POST /chat` liefert Server-Sent Events. `agent.stream_reply` yieldet Events
