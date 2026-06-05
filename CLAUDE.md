@@ -29,6 +29,8 @@ Keine Tests/Linter konfiguriert.
 ## Konfiguration (`.env`, siehe `.env.example`)
 
 - Anthropic: `ANTHROPIC_API_KEY`
+- OpenAI (Sprach-Ein-/Ausgabe): `OPENAI_API_KEY`; optional `OPENAI_TTS_VOICE` (Default
+  `nova`), `OPENAI_TTS_SPEED` (Default `1.2`), `OPENAI_STT_MODEL`, `OPENAI_TTS_MODEL`
 - SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `CONTACT_EMAIL`
 - `PUBLIC_BASE_URL` (für den Freigabe-Link in der Mail an Ralf)
 - `DATA_DIR` (SQLite-DB + PDFs; im Container `/data`, lokal `./data`)
@@ -37,9 +39,11 @@ Keine Tests/Linter konfiguriert.
 
 ## Architektur
 
-- **`main.py`** – FastAPI: liefert die UI, den SSE-Chat-Endpunkt `POST /chat` und den
+- **`main.py`** – FastAPI: liefert die UI, den SSE-Chat-Endpunkt `POST /chat`, die
+  Audio-Endpunkte `POST /chat/stt` und `POST /chat/tts` (OpenAI, siehe `voice.py`) und den
   Freigabe-Endpunkt `GET /freigabe/{token}`. Rate-Limit pro IP und Turn-Limit pro Session,
-  Honeypot-Feld `website`.
+  Honeypot-Feld `website`. Die Audio-Endpunkte bedienen nur bestehende `session_id`s, damit
+  die kostenpflichtigen OpenAI-Calls am selben Missbrauchsschutz wie der Chat hängen.
 - **`agent.py`** – Claude (`claude-opus-4-8`, adaptive thinking, streaming). System-Prompt
   führt das Beratungsgespräch (gesprochene Sprache, eine Frage pro Antwort, **keine Preise**).
   Tool `offerte_erstellen` (structured) extrahiert am Ende die Offerten-Grundlage. Der
@@ -53,9 +57,13 @@ Keine Tests/Linter konfiguriert.
   nicht persistiert) – ein Reload startet daher ein neues Gespräch.
 
 ### Sprache
-Das LLM hat **keine** eigene Sprachfunktion. STT (`SpeechRecognition`) und TTS
-(`SpeechSynthesis`) laufen im Browser (`static/js/app.js`, `de-CH`). Ohne Web Speech API
-(z. B. Firefox) funktioniert die Texteingabe weiter; ein Banner empfiehlt Chrome.
+Das LLM hat **keine** eigene Sprachfunktion. STT und TTS laufen serverseitig über die
+OpenAI-API (`voice.py`): der Browser nimmt Audio per `MediaRecorder` auf und schickt es an
+`/chat/stt` (Whisper, `gpt-4o-mini-transcribe`); die fertige Antwort wird über `/chat/tts`
+(`gpt-4o-mini-tts`, Stimme `nova`) als MP3 vorgelesen (`static/js/app.js`). Das funktioniert
+in allen Browsern (auch Firefox/Safari). Ohne Mikrofon-/Aufnahmeunterstützung funktioniert
+die Texteingabe weiter; ein Banner weist darauf hin. Vorbild ist die Schwesterseite
+`bewerbung-ralfwbalz`.
 
 ### Versand-Flow (bewusst zweistufig)
 Bei Tool-Aufruf wird die Offerte als PDF gerendert und **zuerst nur an Ralf**

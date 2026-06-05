@@ -1,14 +1,15 @@
 """FastAPI-App für den Offerten-Assistenten (offerte.ralfwbalz.ch).
 
-Sprache passiert im Browser (Web Speech API). Hier: Auslieferung der UI, der
-SSE-Chat-Endpunkt zum Streamen der Claude-Antworten und der Freigabe-Endpunkt,
-über den Ralf die fertige Offerte an den Auftraggeber freigibt.
+Sprache läuft serverseitig über OpenAI (Whisper-STT + neuronales TTS, siehe
+``voice.py``). Hier: Auslieferung der UI, der SSE-Chat-Endpunkt zum Streamen der
+Claude-Antworten, die Audio-Endpunkte ``/chat/stt`` und ``/chat/tts`` sowie der
+Freigabe-Endpunkt, über den Ralf die fertige Offerte an den Auftraggeber freigibt.
 """
 import os
 import json
 import logging
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -17,6 +18,7 @@ from dotenv import load_dotenv
 import db
 import agent
 import offer
+import voice
 
 load_dotenv()
 
@@ -137,6 +139,39 @@ async def freigabe(request: Request, token: str):
         {"request": request, "status": status, "kunde": data.get("kunde", {}),
          "titel": data.get("projekt_titel", "")},
     )
+
+
+@app.post("/chat/stt")
+async def chat_stt(session_id: str = Form(""), audio: UploadFile = File(...)):
+    """Sprache → Text (OpenAI Whisper). Nur für bereits gestartete Gespräche –
+    so hängen die kostenpflichtigen Audio-Calls am selben Rate-/Turn-Schutz wie der Chat."""
+    if not session_id or not db.session_exists(session_id):
+        return JSONResponse({"error": "session"}, status_code=403)
+    audio_bytes = await audio.read()
+    try:
+        text = voice.transcribe(audio_bytes, audio.filename or "aufnahme.webm")
+    except Exception as e:  # noqa: BLE001
+        logger.error("STT fehlgeschlagen: %s", e)
+        return JSONResponse({"error": "stt"}, status_code=502)
+    return JSONResponse({"text": text})
+
+
+@app.post("/chat/tts")
+async def chat_tts(request: Request):
+    """Text → MP3-Audio (OpenAI TTS). Nur für bereits gestartete Gespräche."""
+    data = await request.json()
+    session_id = (data.get("session_id") or "").strip()
+    text = (data.get("text") or "").strip()
+    if not session_id or not db.session_exists(session_id):
+        return JSONResponse({"error": "session"}, status_code=403)
+    if not text:
+        return JSONResponse({"error": "leer"}, status_code=400)
+    try:
+        audio = voice.synthesize(text)
+    except Exception as e:  # noqa: BLE001
+        logger.error("TTS fehlgeschlagen: %s", e)
+        return JSONResponse({"error": "tts"}, status_code=502)
+    return Response(content=audio, media_type="audio/mpeg")
 
 
 def _single_event(ev: dict):

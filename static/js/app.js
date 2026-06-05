@@ -1,5 +1,6 @@
 // Offerten-Assistent – Frontend
-// STT/TTS über die Web Speech API (im Browser, ohne Server-Kosten), Chat-Stream via SSE.
+// STT/TTS serverseitig über OpenAI (Whisper + neuronales TTS): Audio wird im Browser
+// per MediaRecorder aufgenommen bzw. als MP3 abgespielt. Chat-Stream via SSE.
 
 (() => {
   "use strict";
@@ -21,58 +22,99 @@
     banner: document.getElementById("speechBanner"),
   };
 
-  // --- Spracherkennung (STT) ---
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null;
-  let listening = false;
+  // --- Spracheingabe (STT, serverseitig via OpenAI) ---
+  // Audio im Browser aufnehmen, an /chat/stt schicken, Transkript senden.
+  const canRecord = !!(navigator.mediaDevices &&
+                       navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  let mediaRecorder = null;
+  let chunks = [];
+  let recording = false;
 
-  if (SR) {
-    recognition = new SR();
-    recognition.lang = "de-CH";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (e) => {
-      const transcript = e.results[0][0].transcript.trim();
-      if (transcript) {
-        el.textInput.value = transcript;
-        sendMessage(transcript);
-      }
-    };
-    recognition.onend = () => { listening = false; el.micBtn.classList.remove("active"); };
-    recognition.onerror = () => { listening = false; el.micBtn.classList.remove("active"); };
-  } else {
+  if (!canRecord) {
     el.banner.classList.remove("hidden");
     el.micBtn.disabled = true;
   }
 
-  el.micBtn.addEventListener("click", () => {
-    if (!recognition) return;
-    if (listening) { recognition.stop(); return; }
+  async function startRecording() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach((tr) => tr.stop());
+      const type = mediaRecorder.mimeType || "audio/webm";
+      await transcribeAndSend(new Blob(chunks, { type }), type);
+    };
+    mediaRecorder.start();
+    recording = true;
+    el.micBtn.classList.add("active");
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && recording) {
+      recording = false;
+      el.micBtn.classList.remove("active");
+      mediaRecorder.stop();
+    }
+  }
+
+  async function transcribeAndSend(blob, type) {
+    if (!blob.size) return;
+    el.micBtn.disabled = true;
+    const ext = (type.includes("mp4") || type.includes("mpeg") || type.includes("aac"))
+      ? "mp4" : (type.includes("ogg") ? "ogg" : "webm");
+    try {
+      const fd = new FormData();
+      fd.append("session_id", sessionId);
+      fd.append("audio", blob, "aufnahme." + ext);
+      const resp = await fetch("/chat/stt", { method: "POST", body: fd });
+      if (resp.ok) {
+        const data = await resp.json();
+        const text = (data.text || "").trim();
+        if (text) sendMessage(text);
+      }
+    } catch (_) { /* ignorieren */ }
+    finally { el.micBtn.disabled = false; }
+  }
+
+  el.micBtn.addEventListener("click", async () => {
+    if (!canRecord) return;
+    if (recording) { stopRecording(); return; }
     cancelSpeak();
     try {
-      recognition.start();
-      listening = true;
-      el.micBtn.classList.add("active");
-    } catch (_) { /* start() bei schnellem Doppelklick ignorieren */ }
+      await startRecording();
+    } catch (_) {
+      recording = false;
+      el.micBtn.classList.remove("active");
+    }
   });
 
-  // --- Sprachausgabe (TTS) ---
-  function pickGermanVoice() {
-    const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
-    return voices.find(v => /de-CH/i.test(v.lang)) ||
-           voices.find(v => /^de/i.test(v.lang)) || null;
-  }
-  function speak(text) {
-    if (!window.speechSynthesis || !el.ttsToggle.checked || !text) return;
+  // --- Sprachausgabe (TTS, serverseitig via OpenAI) ---
+  let currentAudio = null;
+
+  async function speak(text) {
+    if (!el.ttsToggle.checked || !text) return;
     cancelSpeak();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "de-CH";
-    const v = pickGermanVoice();
-    if (v) u.voice = v;
-    window.speechSynthesis.speak(u);
+    try {
+      const resp = await fetch("/chat/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, text }),
+      });
+      if (!resp.ok) return;
+      const url = URL.createObjectURL(await resp.blob());
+      const audio = new Audio(url);
+      currentAudio = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); if (currentAudio === audio) currentAudio = null; };
+      audio.play().catch(() => {});
+    } catch (_) { /* ignorieren */ }
   }
+
   function cancelSpeak() {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (currentAudio) {
+      try { currentAudio.pause(); } catch (_) { /* egal */ }
+      currentAudio = null;
+    }
   }
 
   // --- Chat-UI ---
@@ -163,8 +205,6 @@
   el.startBtn.addEventListener("click", () => {
     el.intro.classList.add("hidden");
     el.chat.classList.remove("hidden");
-    // Browser-TTS „aufwecken“, damit getVoices() befüllt ist.
-    if (window.speechSynthesis) window.speechSynthesis.getVoices();
     sendMessage("Guten Tag, ich möchte ein IT-Projekt mit Ihnen besprechen.");
     el.textInput.focus();
   });
