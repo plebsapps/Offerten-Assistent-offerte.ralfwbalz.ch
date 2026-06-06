@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>{% block title %}Admin – Offerten-Assistent{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=2">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Offerten-Assistent</div>
+    <div class="subbrand">Admin</div>
+    <nav class="adminnav">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/zugang">Zugang</a>
+      <a href="/admin/gespraeche">Gespräche</a>
+      <a href="/admin/offerten">Offerten</a>
+      <a href="/admin/einstellungen">Einstellungen</a>
+    </nav>
+    <a class="adminnav-logout" href="/admin/logout">Abmelden</a>
+  </header>
+
+  <main class="admin-wrap">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

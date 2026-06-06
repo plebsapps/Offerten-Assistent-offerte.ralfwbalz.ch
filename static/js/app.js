@@ -20,7 +20,13 @@
     ttsToggle: document.getElementById("ttsToggle"),
     statusHint: document.getElementById("statusHint"),
     banner: document.getElementById("speechBanner"),
+    overlay: document.getElementById("abschlussOverlay"),
+    overlayCount: document.getElementById("overlayCount"),
+    overlayBtn: document.getElementById("overlayBtn"),
   };
+
+  const homepageUrl = document.body.dataset.homepage || "https://ralfwbalz.ch";
+  let offerCreated = false;
 
   // --- Spracheingabe (STT, serverseitig via OpenAI) ---
   // Audio im Browser aufnehmen, an /chat/stt schicken, Transkript senden.
@@ -182,7 +188,29 @@
       assistant.classList.remove("pending");
       sending = false;
       if (full.trim()) speak(full.trim());
+      if (offerCreated) showAbschluss();
     }
+  }
+
+  // Nach erstellter Offerte: Abschluss-Overlay mit Countdown-Weiterleitung zeigen.
+  function showAbschluss() {
+    if (!el.overlay || !el.overlay.classList.contains("hidden")) return;
+    el.overlayBtn.href = homepageUrl;
+    el.overlayBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.location.href = homepageUrl;
+    });
+    el.overlay.classList.remove("hidden");
+    let rest = 8;
+    el.overlayCount.textContent = rest;
+    const timer = setInterval(() => {
+      rest -= 1;
+      el.overlayCount.textContent = rest;
+      if (rest <= 0) {
+        clearInterval(timer);
+        window.location.href = homepageUrl;
+      }
+    }, 1000);
   }
 
   function handleEvent(ev, assistant, getFull, setFull) {
@@ -192,6 +220,7 @@
       assistant.classList.remove("pending");
       el.messages.scrollTop = el.messages.scrollHeight;
     } else if (ev.type === "offer_created") {
+      offerCreated = true;
       el.statusHint.textContent = "✓ Offerte erstellt und an Ralf gesendet.";
     } else if (ev.type === "limit") {
       assistant.textContent = ev.text;

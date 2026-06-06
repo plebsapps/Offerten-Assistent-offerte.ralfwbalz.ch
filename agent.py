@@ -57,6 +57,19 @@ Regeln:
   aber lenkst zum Projekt zurück.
 """
 
+# Wird bei aktivierter Kostenbremse (Soft-Limit) an den System-Prompt gehängt, damit der
+# Agent sanft zum Abschluss überleitet, statt das Gespräch hart abzubrechen.
+WIND_DOWN_HINWEIS = """\
+
+WICHTIG – Gespräch zum Abschluss bringen:
+Das Gespräch hat eine beträchtliche Länge erreicht. Komme jetzt zum Abschluss, statt weiter
+ins Detail zu gehen. Fasse das Projekt mündlich kurz zusammen und sage dem Kunden freundlich,
+dass ihr nun zum Abschluss kommt und allfällige offene Punkte Ralf persönlich mit ihm klärt.
+Sofern die Kontaktdaten (mindestens eine E-Mail-Adresse) vorliegen, rufe danach das Werkzeug
+„offerte_erstellen“ auf. Fehlen noch Kontaktdaten, frage in dieser Antwort gezielt nur noch
+danach. Stelle weiterhin höchstens eine Frage und nenne keine Preise.
+"""
+
 OFFER_TOOL = {
     "name": "offerte_erstellen",
     "description": (
@@ -122,24 +135,29 @@ def _get_client() -> anthropic.Anthropic:
     return _client
 
 
-def stream_reply(session_id: str, history: list[dict]):
+def stream_reply(session_id: str, history: list[dict], wind_down: bool = False):
     """Streamt die Agenten-Antwort als Event-Dicts.
 
     history: Liste von {role, content}. Persistiert am Ende die Assistenz-Antwort und
     löst bei Bedarf die Offerten-Erstellung aus.
+
+    wind_down: Bei True (Soft-Limit der Kostenbremse erreicht) wird der Agent angewiesen,
+    das Gespräch sanft zum Abschluss zu bringen.
 
     Yields: {"type": "token", "text": ...} | {"type": "offer_created"} |
             {"type": "done"} | {"type": "error", "message": ...}
     """
     messages: list[dict] = [{"role": m["role"], "content": m["content"]} for m in history]
     final_text_parts: list[str] = []
+    system_prompt = SYSTEM_PROMPT + WIND_DOWN_HINWEIS if wind_down else SYSTEM_PROMPT
+    tokens_in = tokens_out = 0
 
     for _ in range(MAX_TOOL_ROUNDS + 1):
         round_text: list[str] = []
         with _get_client().messages.stream(
             model=MODEL,
             max_tokens=16000,
-            system=SYSTEM_PROMPT,
+            system=system_prompt,
             thinking={"type": "adaptive"},
             output_config={"effort": "medium"},
             tools=[OFFER_TOOL],
@@ -149,6 +167,11 @@ def stream_reply(session_id: str, history: list[dict]):
                 round_text.append(text)
                 yield {"type": "token", "text": text}
             final = stream.get_final_message()
+
+        usage = getattr(final, "usage", None)
+        if usage is not None:
+            tokens_in += getattr(usage, "input_tokens", 0) or 0
+            tokens_out += getattr(usage, "output_tokens", 0) or 0
 
         final_text_parts.extend(round_text)
 
@@ -173,6 +196,9 @@ def stream_reply(session_id: str, history: list[dict]):
             )
         messages.append({"role": "user", "content": tool_results})
         # Schleife läuft weiter, damit der Agent die mündliche Abschlussbestätigung gibt.
+
+    if tokens_in or tokens_out:
+        db.add_session_usage(session_id, tokens_in, tokens_out)
 
     final_text = "".join(final_text_parts).strip()
     if final_text:

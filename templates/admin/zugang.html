@@ -1,0 +1,74 @@
+{% extends "admin/layout.html" %}
+{% block title %}Zugang – Admin{% endblock %}
+{% block content %}
+<h1>Zugang</h1>
+
+<div class="admin-card">
+  <h2>Modus</h2>
+  <p class="muted">
+    Im Modus <strong>Öffentlich</strong> kann jeder das Gespräch starten. Im Modus
+    <strong>Nur per Einladung</strong> braucht es einen gültigen Einladungslink.
+  </p>
+  <form method="post" action="/admin/zugang/modus" class="inline-form">
+    <select name="modus">
+      <option value="oeffentlich" {% if zugangsmodus == "oeffentlich" %}selected{% endif %}>Öffentlich</option>
+      <option value="einladung" {% if zugangsmodus == "einladung" %}selected{% endif %}>Nur per Einladung</option>
+    </select>
+    <button type="submit" class="btn-send">Speichern</button>
+  </form>
+</div>
+
+<div class="admin-card">
+  <h2>Neuen Einladungslink erzeugen</h2>
+  <form method="post" action="/admin/zugang/neu" class="inline-form">
+    <input type="text" name="notiz" placeholder="Notiz (z. B. Kundenname)">
+    <input type="number" name="gueltig_tage" min="1" placeholder="gültig (Tage, optional)">
+    <button type="submit" class="btn-primary">Link erzeugen</button>
+  </form>
+</div>
+
+<div class="admin-card">
+  <h2>Einladungslinks</h2>
+  {% if links %}
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Notiz</th><th>Link</th><th>Erstellt</th><th>Gültig bis</th>
+        <th>Zuletzt genutzt</th><th>Status</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in links %}
+      <tr {% if l.deaktiviert %}class="row-inaktiv"{% endif %}>
+        <td>{{ l.notiz or "–" }}</td>
+        <td><code class="link-code">{{ basis_url }}/?z={{ l.token }}</code></td>
+        <td class="muted">{{ l.created_at }}</td>
+        <td class="muted">{{ l.gueltig_bis or "unbegrenzt" }}</td>
+        <td class="muted">{{ l.letzte_nutzung or "–" }}</td>
+        <td>
+          {% if l.deaktiviert %}
+          <span class="badge badge-grau">deaktiviert</span>
+          {% else %}
+          <span class="badge badge-gruen">aktiv</span>
+          {% endif %}
+        </td>
+        <td>
+          <form method="post" action="/admin/zugang/{{ l.id }}/deaktivieren">
+            {% if l.deaktiviert %}
+            <input type="hidden" name="aktiv" value="1">
+            <button type="submit" class="btn-link">aktivieren</button>
+            {% else %}
+            <input type="hidden" name="aktiv" value="0">
+            <button type="submit" class="btn-link">deaktivieren</button>
+            {% endif %}
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Noch keine Einladungslinks erzeugt.</p>
+  {% endif %}
+</div>
+{% endblock %}
