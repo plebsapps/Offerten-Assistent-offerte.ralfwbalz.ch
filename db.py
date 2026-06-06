@@ -46,9 +46,28 @@ def init() -> None:
                 released_at     TEXT,
                 created_at      TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS einstellungen (
+                schluessel  TEXT PRIMARY KEY,
+                wert        TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS zugangslinks (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                token           TEXT UNIQUE NOT NULL,
+                notiz           TEXT,
+                created_at      TEXT NOT NULL,
+                gueltig_bis     TEXT,
+                deaktiviert     INTEGER NOT NULL DEFAULT 0,
+                letzte_nutzung  TEXT
+            );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
             """
         )
+        # Migrationen für bestehende DBs: Token-Verbrauch je Session nachrüsten.
+        for spalte in ("tokens_in", "tokens_out"):
+            try:
+                c.execute(f"ALTER TABLE sessions ADD COLUMN {spalte} INTEGER NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass  # Spalte existiert bereits
 
 
 def _now() -> str:
@@ -128,3 +147,126 @@ def mark_released(token: str) -> None:
             "UPDATE offers SET released_at = ? WHERE freigabe_token = ?",
             (_now(), token),
         )
+
+
+# ----------------------------------------------------------- Einstellungen ----
+
+def get_setting(key: str, default: str = "") -> str:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT wert FROM einstellungen WHERE schluessel = ?", (key,)
+        ).fetchone()
+        return row["wert"] if row else default
+
+
+def set_setting(key: str, wert: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO einstellungen (schluessel, wert) VALUES (?, ?) "
+            "ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert",
+            (key, wert),
+        )
+
+
+# ------------------------------------------------------------ Zugangslinks ----
+
+def create_zugangslink(token: str, notiz: str, gueltig_bis: str | None) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO zugangslinks (token, notiz, created_at, gueltig_bis) "
+            "VALUES (?, ?, ?, ?)",
+            (token, notiz, _now(), gueltig_bis),
+        )
+
+
+def list_zugangslinks() -> list[dict]:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT * FROM zugangslinks ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_zugangslink(token: str) -> dict | None:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM zugangslinks WHERE token = ?", (token,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def set_zugangslink_deaktiviert(link_id: int, deaktiviert: bool) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugangslinks SET deaktiviert = ? WHERE id = ?",
+            (1 if deaktiviert else 0, link_id),
+        )
+
+
+def touch_zugangslink(token: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugangslinks SET letzte_nutzung = ? WHERE token = ?",
+            (_now(), token),
+        )
+
+
+# ----------------------------------------------------------- Token-Verbrauch --
+
+def add_session_usage(session_id: str, tokens_in: int, tokens_out: int) -> None:
+    """Schreibt den Token-Verbrauch einer Runde kumulativ in die Session."""
+    with _conn() as c:
+        c.execute(
+            "UPDATE sessions SET tokens_in = tokens_in + ?, tokens_out = tokens_out + ? "
+            "WHERE id = ?",
+            (tokens_in, tokens_out, session_id),
+        )
+
+
+def get_session_usage(session_id: str) -> tuple[int, int]:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT tokens_in, tokens_out FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+        if not row:
+            return (0, 0)
+        return (row["tokens_in"] or 0, row["tokens_out"] or 0)
+
+
+# -------------------------------------------------------------- Admin-Listen --
+
+def list_sessions() -> list[dict]:
+    """Sessions mit Turn-Zahlen, Token-Verbrauch und Offerten-Flag (für den Admin)."""
+    with _conn() as c:
+        rows = c.execute(
+            """
+            SELECT s.id, s.created_at, s.ip, s.status, s.tokens_in, s.tokens_out,
+                   (SELECT COUNT(*) FROM messages m
+                      WHERE m.session_id = s.id AND m.role = 'user') AS user_turns,
+                   (SELECT COUNT(*) FROM messages m
+                      WHERE m.session_id = s.id) AS msg_count,
+                   (SELECT COUNT(*) FROM offers o
+                      WHERE o.session_id = s.id) AS hat_offerte
+            FROM sessions s
+            ORDER BY s.created_at DESC
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def list_offers() -> list[dict]:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, session_id, data_json, pdf_path, freigabe_token, "
+            "released_at, created_at FROM offers ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_offer_by_session(session_id: str) -> dict | None:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM offers WHERE session_id = ? ORDER BY id DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        return dict(row) if row else None

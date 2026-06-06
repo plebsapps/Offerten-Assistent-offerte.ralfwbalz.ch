@@ -12,7 +12,7 @@ import offer
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-opus-4-8"
+MODEL = "claude-sonnet-4-6"
 MAX_TOOL_ROUNDS = 3
 
 SYSTEM_PROMPT = """\
