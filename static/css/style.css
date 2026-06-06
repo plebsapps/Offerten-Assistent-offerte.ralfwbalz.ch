@@ -28,11 +28,11 @@ body {
 .subbrand { color: #93c5fd; font-size: .9rem; }
 .topbar-login {
   margin-left: auto;
-  color: #cbd5e1;
+  color: #fff;
   text-decoration: none;
   font-size: .9rem;
 }
-.topbar-login:hover { color: #fff; }
+.topbar-login:hover { text-decoration: underline; }
 
 .wrap {
   max-width: 760px;
