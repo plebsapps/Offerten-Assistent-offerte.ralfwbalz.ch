@@ -26,6 +26,13 @@ body {
 }
 .brand { font-weight: 700; font-size: 1.15rem; }
 .subbrand { color: #93c5fd; font-size: .9rem; }
+.topbar-login {
+  margin-left: auto;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: .9rem;
+}
+.topbar-login:hover { color: #fff; }
 
 .wrap {
   max-width: 760px;
