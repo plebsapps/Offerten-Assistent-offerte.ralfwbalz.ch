@@ -21,7 +21,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Anwendungscode
-COPY main.py agent.py offer.py db.py voice.py ./
+COPY main.py agent.py offer.py db.py voice.py auth.py settings.py routes_admin.py ./
 COPY templates/ templates/
 COPY static/ static/
 
