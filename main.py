@@ -89,8 +89,16 @@ async def index(request: Request):
         # ohne gültigen Token gibt es immer die Hinweisseite. (zugang_ok bleibt im Cookie, damit
         # die Endpunkte eines bereits laufenden Gesprächs im offenen Tab nicht abbrechen.)
         token = (request.query_params.get("z") or "").strip()
-        if token and _zugangslink_gueltig(db.get_zugangslink(token)):
+        link = db.get_zugangslink(token) if token else None
+        if token and _zugangslink_gueltig(link):
             request.session["zugang_ok"] = True
+            # Empfängerdaten in die Session: der Agent spricht persönlich an und fragt
+            # nicht erneut nach der E-Mail (an die der Link ging).
+            request.session["kontakt"] = {
+                "anrede": link.get("anrede") or "",
+                "name": link.get("name") or "",
+                "email": link.get("empfaenger_email") or "",
+            }
             db.touch_zugangslink(token)
         else:
             return templates.TemplateResponse(
@@ -158,10 +166,11 @@ async def chat(request: Request):
 
     db.add_message(session_id, "user", text)
     history = db.get_history(session_id)
+    kontakt = request.session.get("kontakt") or {}
 
     def event_stream():
         try:
-            for ev in agent.stream_reply(session_id, history, wind_down=wind_down):
+            for ev in agent.stream_reply(session_id, history, wind_down=wind_down, kontakt=kontakt):
                 yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
         except Exception as e:  # noqa: BLE001
             logger.error("Chat-Stream-Fehler: %s", e)

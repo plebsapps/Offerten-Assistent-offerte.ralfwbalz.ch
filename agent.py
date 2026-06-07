@@ -126,6 +126,47 @@ OFFER_TOOL = {
     },
 }
 
+def _kontakt_hinweis(kontakt: dict | None) -> str:
+    """Hinweis an den Agenten, wenn der Gesprächspartner über einen Einladungslink bereits
+    bekannt ist (Anrede/Name/E-Mail): persönlich ansprechen, nicht nach E-Mail fragen."""
+    if not kontakt:
+        return ""
+    anrede = (kontakt.get("anrede") or "").strip()
+    name = (kontakt.get("name") or "").strip()
+    email = (kontakt.get("email") or "").strip()
+    if not (name or email):
+        return ""
+    anrede_name = " ".join(t for t in (anrede, name) if t).strip()
+    z = ["", "WICHTIG – Der Gesprächspartner ist bereits bekannt und persönlich eingeladen:"]
+    if anrede_name:
+        z.append(f"- Anrede und Name: {anrede_name}")
+    if email:
+        z.append(f"- E-Mail-Adresse: {email} (dorthin wurde der Einladungslink gesendet)")
+    z.append(
+        "Sprich die Person ab deiner ersten Antwort persönlich und mit korrekter Anrede an "
+        "(z. B. „Guten Tag, Frau Muster“ oder „Guten Tag, Herr Muster“). Lautet die Anrede "
+        "„Firma“, ist der Name ein Unternehmen – wähle dann eine passende, höfliche Ansprache."
+    )
+    if email:
+        z.append(
+            f"Frage NICHT nach Name oder E-Mail-Adresse – beides ist bekannt. Bestätige die "
+            f"E-Mail-Adresse nur einmal kurz im Gespräch (etwa „Ich erreiche Sie unter {email}, "
+            f"ist das korrekt?“), statt danach zu fragen. Verwende beim Werkzeug "
+            f"„offerte_erstellen“ genau diese E-Mail-Adresse und diesen Namen."
+        )
+    else:
+        z.append("Frage nicht erneut nach dem Namen – er ist bereits bekannt.")
+    return "\n".join(z) + "\n"
+
+
+def build_system_prompt(wind_down: bool = False, kontakt: dict | None = None) -> str:
+    """System-Prompt mit optionalem Kontakt-Hinweis und Abschluss-Hinweis (Soft-Limit)."""
+    prompt = SYSTEM_PROMPT + _kontakt_hinweis(kontakt)
+    if wind_down:
+        prompt += WIND_DOWN_HINWEIS
+    return prompt
+
+
 _client: anthropic.Anthropic | None = None
 
 
@@ -136,23 +177,28 @@ def _get_client() -> anthropic.Anthropic:
     return _client
 
 
-def stream_reply(session_id: str, history: list[dict], wind_down: bool = False):
+def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
+                 kontakt: dict | None = None):
     """Dispatcher: streamt die Agenten-Antwort über den eingestellten KI-Anbieter.
 
     'claude' (Default, Anthropic) oder 'openai' (ChatGPT). Beide liefern dieselbe
     Event-Schnittstelle. Im Admin via ``settings.ki_anbieter()`` umschaltbar.
+
+    kontakt: optionale Empfängerdaten (anrede/name/email) aus dem Einladungslink, damit
+    der Agent persönlich anspricht und nicht erneut nach der E-Mail fragt.
 
     Yields: {"type": "token", "text": ...} | {"type": "offer_created"} |
             {"type": "done"} | {"type": "error", "message": ...}
     """
     if settings.ki_anbieter() == "openai":
         import agent_openai  # lazy: vermeidet Zirkelbezug beim Import
-        yield from agent_openai.stream_reply(session_id, history, wind_down=wind_down)
+        yield from agent_openai.stream_reply(session_id, history, wind_down=wind_down, kontakt=kontakt)
     else:
-        yield from _stream_reply_claude(session_id, history, wind_down=wind_down)
+        yield from _stream_reply_claude(session_id, history, wind_down=wind_down, kontakt=kontakt)
 
 
-def _stream_reply_claude(session_id: str, history: list[dict], wind_down: bool = False):
+def _stream_reply_claude(session_id: str, history: list[dict], wind_down: bool = False,
+                         kontakt: dict | None = None):
     """Streamt die Agenten-Antwort von Claude als Event-Dicts.
 
     history: Liste von {role, content}. Persistiert am Ende die Assistenz-Antwort und
@@ -163,7 +209,7 @@ def _stream_reply_claude(session_id: str, history: list[dict], wind_down: bool =
     """
     messages: list[dict] = [{"role": m["role"], "content": m["content"]} for m in history]
     final_text_parts: list[str] = []
-    system_prompt = SYSTEM_PROMPT + WIND_DOWN_HINWEIS if wind_down else SYSTEM_PROMPT
+    system_prompt = build_system_prompt(wind_down, kontakt)
     tokens_in = tokens_out = 0
 
     for _ in range(MAX_TOOL_ROUNDS + 1):

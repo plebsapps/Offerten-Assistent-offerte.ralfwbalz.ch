@@ -37,9 +37,10 @@ def _get_client() -> openai.OpenAI:
     return _client
 
 
-def stream_reply(session_id: str, history: list[dict], wind_down: bool = False):
+def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
+                 kontakt: dict | None = None):
     """Streamt die Agenten-Antwort als Event-Dicts (gleiche Schnittstelle wie agent)."""
-    system_prompt = (agent.SYSTEM_PROMPT + agent.WIND_DOWN_HINWEIS) if wind_down else agent.SYSTEM_PROMPT
+    system_prompt = agent.build_system_prompt(wind_down, kontakt)
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
     messages += [{"role": m["role"], "content": m["content"]} for m in history]
 

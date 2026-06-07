@@ -27,12 +27,22 @@
 <div class="admin-card">
   <h2>Neuen Einladungslink erzeugen</h2>
   <form method="post" action="/admin/zugang/neu" class="inline-form">
-    <input type="text" name="notiz" placeholder="Notiz (z. B. Kundenname)">
-    <input type="number" name="gueltig_tage" min="1" placeholder="gültig (Tage, optional)">
+    <select name="anrede">
+      <option value="">Anrede …</option>
+      <option value="Frau">Frau</option>
+      <option value="Herr">Herr</option>
+      <option value="Firma">Firma</option>
+    </select>
+    <input type="text" name="name" placeholder="Name / Firma">
     <input type="email" name="empfaenger_email" placeholder="E-Mail (optional – Link direkt senden)">
+    <input type="number" name="gueltig_tage" min="1" placeholder="gültig (Tage, optional)">
+    <input type="text" name="notiz" placeholder="interne Notiz (optional)">
     <button type="submit" class="btn-primary">Link erzeugen</button>
   </form>
-  <p class="muted">Ist eine E-Mail angegeben, wird der Link direkt an diese Adresse versendet.</p>
+  <p class="muted">
+    Anrede und Name sorgen für die persönliche Ansprache im Chat und in der E-Mail. Ist eine
+    E-Mail angegeben, wird der Link direkt an diese Adresse versendet.
+  </p>
 </div>
 
 <h2>Einladungslinks</h2>
@@ -40,7 +50,7 @@
 {% for l in links %}
 <div class="admin-card zugang-link {% if l.deaktiviert %}row-inaktiv{% endif %}">
   <div class="zugang-link-kopf">
-    <strong>{{ l.notiz or "Ohne Notiz" }}</strong>
+    <strong>{{ [l.anrede, l.name]|select|join(" ") or l.notiz or "Ohne Notiz" }}</strong>
     {% if l.deaktiviert %}
     <span class="badge badge-grau">deaktiviert</span>
     {% else %}
@@ -54,6 +64,7 @@
 
   <div class="zugang-link-meta">
     <span><span class="meta-label">Empfänger:</span> {{ l.empfaenger_email or "–" }}</span>
+    {% if l.notiz %}<span><span class="meta-label">Notiz:</span> {{ l.notiz }}</span>{% endif %}
     <span><span class="meta-label">Erstellt:</span> {{ l.created_at }}</span>
     <span><span class="meta-label">Gültig bis:</span> {{ l.gueltig_bis or "unbegrenzt" }}</span>
     <span><span class="meta-label">Zuletzt genutzt:</span> {{ l.letzte_nutzung or "–" }}</span>

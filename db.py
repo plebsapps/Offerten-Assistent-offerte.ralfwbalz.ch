@@ -58,7 +58,9 @@ def init() -> None:
                 gueltig_bis     TEXT,
                 deaktiviert     INTEGER NOT NULL DEFAULT 0,
                 letzte_nutzung  TEXT,
-                empfaenger_email TEXT
+                empfaenger_email TEXT,
+                anrede          TEXT,
+                name            TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
             """
@@ -69,11 +71,12 @@ def init() -> None:
                 c.execute(f"ALTER TABLE sessions ADD COLUMN {spalte} INTEGER NOT NULL DEFAULT 0")
             except sqlite3.OperationalError:
                 pass  # Spalte existiert bereits
-        # Migration: Empfänger-E-Mail je Einladungslink nachrüsten.
-        try:
-            c.execute("ALTER TABLE zugangslinks ADD COLUMN empfaenger_email TEXT")
-        except sqlite3.OperationalError:
-            pass  # Spalte existiert bereits
+        # Migration: Empfänger-Daten je Einladungslink nachrüsten.
+        for spalte in ("empfaenger_email", "anrede", "name"):
+            try:
+                c.execute(f"ALTER TABLE zugangslinks ADD COLUMN {spalte} TEXT")
+            except sqlite3.OperationalError:
+                pass  # Spalte existiert bereits
 
 
 def _now() -> str:
@@ -177,12 +180,13 @@ def set_setting(key: str, wert: str) -> None:
 # ------------------------------------------------------------ Zugangslinks ----
 
 def create_zugangslink(token: str, notiz: str, gueltig_bis: str | None,
-                       empfaenger_email: str = "") -> None:
+                       empfaenger_email: str = "", anrede: str = "", name: str = "") -> None:
     with _conn() as c:
         c.execute(
-            "INSERT INTO zugangslinks (token, notiz, created_at, gueltig_bis, empfaenger_email) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (token, notiz, _now(), gueltig_bis, empfaenger_email),
+            "INSERT INTO zugangslinks "
+            "(token, notiz, created_at, gueltig_bis, empfaenger_email, anrede, name) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (token, notiz, _now(), gueltig_bis, empfaenger_email, anrede, name),
         )
 
 

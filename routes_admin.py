@@ -103,7 +103,8 @@ async def zugang_modus(request: Request, _: None = Depends(auth.require_admin),
 @router.post("/admin/zugang/neu")
 async def zugang_neu(request: Request, _: None = Depends(auth.require_admin),
                      notiz: str = Form(""), gueltig_tage: str = Form(""),
-                     empfaenger_email: str = Form("")):
+                     empfaenger_email: str = Form(""), anrede: str = Form(""),
+                     name: str = Form("")):
     token = secrets.token_urlsafe(24)
     gueltig_bis = None
     try:
@@ -113,11 +114,12 @@ async def zugang_neu(request: Request, _: None = Depends(auth.require_admin),
     except ValueError:
         pass
     empfaenger = empfaenger_email.strip()
-    db.create_zugangslink(token, notiz.strip(), gueltig_bis, empfaenger)
+    anrede, name = anrede.strip(), name.strip()
+    db.create_zugangslink(token, notiz.strip(), gueltig_bis, empfaenger, anrede, name)
     if empfaenger:
         link_url = f"{settings.basis_url()}/?z={token}"
         try:
-            offer.send_invitation(empfaenger, link_url, notiz.strip())
+            offer.send_invitation(empfaenger, link_url, notiz.strip(), anrede, name)
         except Exception as e:  # noqa: BLE001
             logger.error("Einladungs-Mail fehlgeschlagen: %s", e)
             return _redirect("/admin/zugang?fehler=1")
@@ -137,7 +139,8 @@ async def zugang_senden(request: Request, link_id: int,
         return _redirect("/admin/zugang?fehler=1")
     link_url = f"{settings.basis_url()}/?z={link['token']}"
     try:
-        offer.send_invitation(empfaenger, link_url, link.get("notiz") or "")
+        offer.send_invitation(empfaenger, link_url, link.get("notiz") or "",
+                              link.get("anrede") or "", link.get("name") or "")
     except Exception as e:  # noqa: BLE001
         logger.error("Einladungs-Mail fehlgeschlagen: %s", e)
         return _redirect("/admin/zugang?fehler=1")

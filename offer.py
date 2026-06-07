@@ -187,18 +187,32 @@ def release_to_customer(token: str) -> dict | None:
     return row
 
 
-def send_invitation(empfaenger_email: str, link_url: str, notiz: str = "") -> None:
+def _begruessung(anrede: str = "", name: str = "") -> str:
+    """Persönliche Anrede für die Einladungs-Mail (Frau/Herr + Name, sonst Name/neutral)."""
+    anrede = (anrede or "").strip()
+    name = (name or "").strip()
+    if anrede in ("Frau", "Herr") and name:
+        return f"Guten Tag {anrede} {name}"
+    if name:
+        return f"Guten Tag {name}"
+    return "Guten Tag"
+
+
+def send_invitation(empfaenger_email: str, link_url: str, notiz: str = "",
+                    anrede: str = "", name: str = "") -> None:
     """Sendet einen Einladungslink (ohne Anhang) an den Empfänger.
 
     Wirft bei Fehlern (fehlende SMTP-Konfiguration o. ä.) – die aufrufende Route
     fängt das ab und meldet es im Admin zurück.
     """
+    begruessung = _begruessung(anrede, name)
     html = _env.get_template("invitation_email.html").render(
         link_url=link_url,
         notiz=notiz,
+        begruessung=begruessung,
     )
     plain = (
-        "Guten Tag\n\n"
+        f"{begruessung}\n\n"
         "Ralf W. Balz lädt Sie ein, Ihr IT-Projekt mit dem Offerten-Assistenten zu planen. "
         "Über den folgenden Link starten Sie das Gespräch:\n\n"
         f"{link_url}\n\n"

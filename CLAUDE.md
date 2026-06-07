@@ -95,8 +95,12 @@ Keine Tests/Linter konfiguriert.
   Chat ist freigeschaltet, sonst liefert `/` die `einladung.html` (403) und `/chat*` antworten
   403. `zugangslinks` sind **bewusst mehrfach nutzbar** (eine `session_id` entsteht pro Reload neu)
   und lassen sich deaktivieren bzw. zeitlich begrenzen (`gueltig_bis`). Optional speichert ein Link
-  eine `empfaenger_email` und kann direkt per E-Mail verschickt werden; die Link-URL baut sich aus
-  `settings.basis_url()` (Produktions-Fallback → nie localhost nach aussen).
+  `empfaenger_email`, `anrede` (Frau/Herr/Firma) und `name` und kann direkt per E-Mail verschickt
+  werden; die Link-URL baut sich aus `settings.basis_url()` (Produktions-Fallback → nie localhost
+  nach aussen). Beim Eintritt über `?z=<token>` landen diese Daten als `request.session["kontakt"]`
+  und werden an `agent.stream_reply(..., kontakt=…)` gegeben: `agent.build_system_prompt` hängt
+  dann einen Hinweis an, damit der Agent persönlich mit Namen anspricht und die E-Mail (an die der
+  Link ging) nur bestätigen lässt, statt danach zu fragen.
 - **KI-Anbieter** (`settings.ki_anbieter()`, im Admin umschaltbar): `claude` (Default) oder
   `openai` (ChatGPT `gpt-4.1`). `agent.stream_reply` dispatcht entsprechend.
 - **Kostenbremse** in `POST /chat` (vor dem Agentenaufruf): geprüft werden Turns **und** Token
