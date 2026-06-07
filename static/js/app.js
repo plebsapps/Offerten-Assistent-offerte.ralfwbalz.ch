@@ -305,6 +305,9 @@
     } else if (ev.type === "offer_created") {
       offerCreated = true;
       el.statusHint.textContent = "✓ Offerte erstellt und an Ralf gesendet.";
+      // Overlay mit Homepage-Link sofort zeigen – nicht erst nach der gesprochenen
+      // Verabschiedung am Stream-Ende.
+      showAbschluss();
     } else if (ev.type === "limit") {
       assistant.textContent = ev.text;
     } else if (ev.type === "error") {
