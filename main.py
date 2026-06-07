@@ -84,11 +84,15 @@ def _zugangslink_gueltig(row: dict | None) -> bool:
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     if settings.zugangsmodus() == "einladung":
+        # Bei JEDEM Besuch der Startseite ist ein gültiger Einladungslink (?z=<token>) nötig.
+        # Ein früher gesetztes zugang_ok genügt allein nicht mehr, um die Chat-Seite zu sehen –
+        # ohne gültigen Token gibt es immer die Hinweisseite. (zugang_ok bleibt im Cookie, damit
+        # die Endpunkte eines bereits laufenden Gesprächs im offenen Tab nicht abbrechen.)
         token = (request.query_params.get("z") or "").strip()
         if token and _zugangslink_gueltig(db.get_zugangslink(token)):
             request.session["zugang_ok"] = True
             db.touch_zugangslink(token)
-        if not request.session.get("zugang_ok"):
+        else:
             return templates.TemplateResponse(
                 "einladung.html", {"request": request}, status_code=403
             )
