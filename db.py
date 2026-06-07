@@ -57,7 +57,8 @@ def init() -> None:
                 created_at      TEXT NOT NULL,
                 gueltig_bis     TEXT,
                 deaktiviert     INTEGER NOT NULL DEFAULT 0,
-                letzte_nutzung  TEXT
+                letzte_nutzung  TEXT,
+                empfaenger_email TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
             """
@@ -68,6 +69,11 @@ def init() -> None:
                 c.execute(f"ALTER TABLE sessions ADD COLUMN {spalte} INTEGER NOT NULL DEFAULT 0")
             except sqlite3.OperationalError:
                 pass  # Spalte existiert bereits
+        # Migration: Empfänger-E-Mail je Einladungslink nachrüsten.
+        try:
+            c.execute("ALTER TABLE zugangslinks ADD COLUMN empfaenger_email TEXT")
+        except sqlite3.OperationalError:
+            pass  # Spalte existiert bereits
 
 
 def _now() -> str:
@@ -170,13 +176,22 @@ def set_setting(key: str, wert: str) -> None:
 
 # ------------------------------------------------------------ Zugangslinks ----
 
-def create_zugangslink(token: str, notiz: str, gueltig_bis: str | None) -> None:
+def create_zugangslink(token: str, notiz: str, gueltig_bis: str | None,
+                       empfaenger_email: str = "") -> None:
     with _conn() as c:
         c.execute(
-            "INSERT INTO zugangslinks (token, notiz, created_at, gueltig_bis) "
-            "VALUES (?, ?, ?, ?)",
-            (token, notiz, _now(), gueltig_bis),
+            "INSERT INTO zugangslinks (token, notiz, created_at, gueltig_bis, empfaenger_email) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (token, notiz, _now(), gueltig_bis, empfaenger_email),
         )
+
+
+def get_zugangslink_by_id(link_id: int) -> dict | None:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM zugangslinks WHERE id = ?", (link_id,)
+        ).fetchone()
+        return dict(row) if row else None
 
 
 def list_zugangslinks() -> list[dict]:

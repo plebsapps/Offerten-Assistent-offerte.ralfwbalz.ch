@@ -17,12 +17,33 @@ _DEFAULTS = {
 }
 
 ZUGANGSMODI = ("oeffentlich", "einladung")
+KI_ANBIETER = ("claude", "openai")
+
+# Produktions-Fallback, falls PUBLIC_BASE_URL nicht gesetzt ist. So enthält ein
+# Einladungslink (z. B. in der Mail) nie versehentlich localhost oder eine leere Basis.
+_BASIS_URL_FALLBACK = "https://offerte.ralfwbalz.ch"
 
 
 def zugangsmodus() -> str:
     """'oeffentlich' (Default, wie bisher) oder 'einladung' (nur per Token-Link)."""
     wert = db.get_setting("zugangsmodus", "oeffentlich")
     return wert if wert in ZUGANGSMODI else "oeffentlich"
+
+
+def basis_url() -> str:
+    """Öffentliche Basis-URL ohne Trailing-Slash (für Einladungs- und Freigabe-Links).
+
+    Liest ``PUBLIC_BASE_URL``; ist sie leer, greift der Produktions-Fallback, damit
+    Links nach aussen nie auf localhost oder eine leere Basis zeigen.
+    """
+    return (os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+            or _BASIS_URL_FALLBACK)
+
+
+def ki_anbieter() -> str:
+    """Gesprächs-KI: 'claude' (Anthropic, Default) oder 'openai' (ChatGPT)."""
+    wert = db.get_setting("ki_anbieter", os.environ.get("KI_ANBIETER", "claude"))
+    return wert if wert in KI_ANBIETER else "claude"
 
 
 def _int_setting(key: str) -> int:

@@ -3,6 +3,12 @@
 {% block content %}
 <h1>Zugang</h1>
 
+{% if gesendet %}
+<div class="admin-card" style="border-left:4px solid #16a34a">Einladungs-E-Mail wurde versendet.</div>
+{% elif fehler %}
+<div class="admin-card" style="border-left:4px solid #dc2626">E-Mail-Versand fehlgeschlagen. Bitte SMTP-Konfiguration und E-Mail-Adresse prüfen.</div>
+{% endif %}
+
 <div class="admin-card">
   <h2>Modus</h2>
   <p class="muted">
@@ -23,8 +29,10 @@
   <form method="post" action="/admin/zugang/neu" class="inline-form">
     <input type="text" name="notiz" placeholder="Notiz (z. B. Kundenname)">
     <input type="number" name="gueltig_tage" min="1" placeholder="gültig (Tage, optional)">
+    <input type="email" name="empfaenger_email" placeholder="E-Mail (optional – Link direkt senden)">
     <button type="submit" class="btn-primary">Link erzeugen</button>
   </form>
+  <p class="muted">Ist eine E-Mail angegeben, wird der Link direkt an diese Adresse versendet.</p>
 </div>
 
 <div class="admin-card">
@@ -33,8 +41,8 @@
   <table class="admin-table">
     <thead>
       <tr>
-        <th>Notiz</th><th>Link</th><th>Erstellt</th><th>Gültig bis</th>
-        <th>Zuletzt genutzt</th><th>Status</th><th></th>
+        <th>Notiz</th><th>Link</th><th>Empfänger</th><th>Erstellt</th><th>Gültig bis</th>
+        <th>Zuletzt genutzt</th><th>Status</th><th>Senden</th><th></th>
       </tr>
     </thead>
     <tbody>
@@ -42,6 +50,7 @@
       <tr {% if l.deaktiviert %}class="row-inaktiv"{% endif %}>
         <td>{{ l.notiz or "–" }}</td>
         <td><code class="link-code">{{ basis_url }}/?z={{ l.token }}</code></td>
+        <td class="muted">{{ l.empfaenger_email or "–" }}</td>
         <td class="muted">{{ l.created_at }}</td>
         <td class="muted">{{ l.gueltig_bis or "unbegrenzt" }}</td>
         <td class="muted">{{ l.letzte_nutzung or "–" }}</td>
@@ -51,6 +60,12 @@
           {% else %}
           <span class="badge badge-gruen">aktiv</span>
           {% endif %}
+        </td>
+        <td>
+          <form method="post" action="/admin/zugang/{{ l.id }}/senden" class="inline-form">
+            <input type="email" name="empfaenger_email" placeholder="E-Mail" value="{{ l.empfaenger_email or '' }}">
+            <button type="submit" class="btn-link">senden</button>
+          </form>
         </td>
         <td>
           <form method="post" action="/admin/zugang/{{ l.id }}/deaktivieren">

@@ -9,6 +9,7 @@ import anthropic
 
 import db
 import offer
+import settings
 
 logger = logging.getLogger(__name__)
 
@@ -136,16 +137,29 @@ def _get_client() -> anthropic.Anthropic:
 
 
 def stream_reply(session_id: str, history: list[dict], wind_down: bool = False):
-    """Streamt die Agenten-Antwort als Event-Dicts.
+    """Dispatcher: streamt die Agenten-Antwort über den eingestellten KI-Anbieter.
+
+    'claude' (Default, Anthropic) oder 'openai' (ChatGPT). Beide liefern dieselbe
+    Event-Schnittstelle. Im Admin via ``settings.ki_anbieter()`` umschaltbar.
+
+    Yields: {"type": "token", "text": ...} | {"type": "offer_created"} |
+            {"type": "done"} | {"type": "error", "message": ...}
+    """
+    if settings.ki_anbieter() == "openai":
+        import agent_openai  # lazy: vermeidet Zirkelbezug beim Import
+        yield from agent_openai.stream_reply(session_id, history, wind_down=wind_down)
+    else:
+        yield from _stream_reply_claude(session_id, history, wind_down=wind_down)
+
+
+def _stream_reply_claude(session_id: str, history: list[dict], wind_down: bool = False):
+    """Streamt die Agenten-Antwort von Claude als Event-Dicts.
 
     history: Liste von {role, content}. Persistiert am Ende die Assistenz-Antwort und
     löst bei Bedarf die Offerten-Erstellung aus.
 
     wind_down: Bei True (Soft-Limit der Kostenbremse erreicht) wird der Agent angewiesen,
     das Gespräch sanft zum Abschluss zu bringen.
-
-    Yields: {"type": "token", "text": ...} | {"type": "offer_created"} |
-            {"type": "done"} | {"type": "error", "message": ...}
     """
     messages: list[dict] = [{"role": m["role"], "content": m["content"]} for m in history]
     final_text_parts: list[str] = []

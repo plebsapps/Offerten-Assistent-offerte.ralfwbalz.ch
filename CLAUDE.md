@@ -55,23 +55,33 @@ Keine Tests/Linter konfiguriert.
   Chat hängen.
 - **`routes_admin.py`** – Admin-Bereich unter `/admin*` (alle Routen außer Login via
   `Depends(auth.require_admin)`): Login/Logout, Dashboard (Kennzahlen), `/admin/zugang`
-  (Modus-Toggle + Einladungslinks anlegen/deaktivieren), `/admin/gespraeche` (+ Transkript),
-  `/admin/offerten` (PDF-Download + Freigabe an Kunden via `offer.release_to_customer`),
-  `/admin/einstellungen` (Limit-Schwellen pflegen).
+  (Modus-Toggle + Einladungslinks anlegen/deaktivieren, optional direkt per E-Mail versenden via
+  `offer.send_invitation`), `/admin/gespraeche` (+ Transkript), `/admin/offerten` (PDF-Download +
+  Freigabe an Kunden via `offer.release_to_customer`), `/admin/einstellungen` (Limit-Schwellen +
+  KI-Anbieter-Toggle pflegen).
 - **`auth.py`** – bcrypt-Login + Session-Helfer (`anmelden`/`abmelden`/`ist_angemeldet`,
   `require_admin`, `NichtAngemeldet`). Zugangsdaten nur aus der Umgebung.
-- **`settings.py`** – zentrale Laufzeit-Konfig: `zugangsmodus()` (`oeffentlich`/`einladung`)
-  und die Limit-Getter, gelesen aus der `einstellungen`-Tabelle mit Env-/Default-Fallback.
-- **`agent.py`** – Claude (`claude-opus-4-8`, adaptive thinking, streaming). System-Prompt
-  führt das Beratungsgespräch (gesprochene Sprache, eine Frage pro Antwort, **keine Preise**).
-  Tool `offerte_erstellen` (structured) extrahiert am Ende die Offerten-Grundlage. Der
-  Aufruf rendert/versendet die Offerte direkt (`offer.create_and_send`); danach läuft die
-  Streaming-Schleife (`MAX_TOOL_ROUNDS`) noch eine Runde weiter, damit Claude die mündliche
-  Abschlussbestätigung gibt. Tool-Fehler werden als `tool_result`-Text zurückgegeben, nicht
-  geworfen. `stream_reply(..., wind_down=bool)` hängt bei aktivem Soft-Limit einen Abschluss-
-  Hinweis an den Prompt; je Stream-Runde wird `usage` aufsummiert und via
-  `db.add_session_usage` in die Session geschrieben.
+- **`settings.py`** – zentrale Laufzeit-Konfig: `zugangsmodus()` (`oeffentlich`/`einladung`),
+  `ki_anbieter()` (`claude`/`openai`), `basis_url()` (öffentliche Basis-URL mit Produktions-
+  Fallback) und die Limit-Getter, gelesen aus der `einstellungen`-Tabelle mit Env-/Default-Fallback.
+- **`agent.py`** – Dispatcher `stream_reply(..., wind_down=bool)`, der je nach
+  `settings.ki_anbieter()` an die Claude- (`_stream_reply_claude`) oder OpenAI-Implementierung
+  (`agent_openai.stream_reply`, lazy import) delegiert. Beide liefern dieselbe Event-Schnittstelle.
+  Claude-Pfad: `claude-opus-4-8`, adaptive thinking, streaming. Geteilt werden `SYSTEM_PROMPT`,
+  `WIND_DOWN_HINWEIS` und das Tool `offerte_erstellen` (structured), das am Ende die Offerten-
+  Grundlage extrahiert. Der Tool-Aufruf rendert/versendet die Offerte direkt
+  (`offer.create_and_send`); danach läuft die Streaming-Schleife (`MAX_TOOL_ROUNDS`) noch eine
+  Runde weiter für die mündliche Abschlussbestätigung. Tool-Fehler werden als `tool_result`-Text
+  zurückgegeben, nicht geworfen. Bei aktivem Soft-Limit hängt `wind_down=True` einen Abschluss-
+  Hinweis an den Prompt; je Stream-Runde wird `usage` aufsummiert und via `db.add_session_usage`
+  geschrieben.
+- **`agent_openai.py`** – OpenAI-Variante (ChatGPT, `gpt-4.1`). Spiegelt die Event-Schnittstelle,
+  nutzt `chat.completions.create(stream=True, stream_options={"include_usage": True})`, hüllt das
+  geteilte `OFFER_TOOL`-Schema ins Function-Format und setzt streamende `tool_calls` über die
+  Chunks zusammen. `OPENAI_API_KEY` erforderlich (ohnehin für Sprache nötig).
 - **`offer.py`** – Pydantic-/Dict-Daten → WeasyPrint-PDF → SMTP. Wichtig: Versand-Flow.
+  `send_invitation(...)` mailt zusätzlich einen Einladungslink (ohne Anhang) an den Empfänger;
+  `_smtp_send` hat dafür optionales PDF.
 - **`db.py`** – SQLite (`sessions` inkl. `tokens_in`/`tokens_out`, `messages`, `offers`,
   `einstellungen`, `zugangslinks`; WAL-Modus, eine Verbindung pro Aufruf; Spalten-Migration
   via `ALTER TABLE … / except OperationalError`). Die `session_id` wird browserseitig pro
@@ -84,7 +94,11 @@ Keine Tests/Linter konfiguriert.
   `PUBLIC_BASE_URL/?z=<token>`; ein gültiger Token setzt `request.session["zugang_ok"]` und der
   Chat ist freigeschaltet, sonst liefert `/` die `einladung.html` (403) und `/chat*` antworten
   403. `zugangslinks` sind **bewusst mehrfach nutzbar** (eine `session_id` entsteht pro Reload neu)
-  und lassen sich deaktivieren bzw. zeitlich begrenzen (`gueltig_bis`).
+  und lassen sich deaktivieren bzw. zeitlich begrenzen (`gueltig_bis`). Optional speichert ein Link
+  eine `empfaenger_email` und kann direkt per E-Mail verschickt werden; die Link-URL baut sich aus
+  `settings.basis_url()` (Produktions-Fallback → nie localhost nach aussen).
+- **KI-Anbieter** (`settings.ki_anbieter()`, im Admin umschaltbar): `claude` (Default) oder
+  `openai` (ChatGPT `gpt-4.1`). `agent.stream_reply` dispatcht entsprechend.
 - **Kostenbremse** in `POST /chat` (vor dem Agentenaufruf): geprüft werden Turns **und** Token
   (`turns`/`tokens_in+tokens_out`). Erreicht eines die **Hard**-Schwelle (`max_turns`/`max_tokens`),
   gibt es das bestehende `limit`-Event (Stopp). Erreicht eines die **Soft**-Schwelle

@@ -24,8 +24,6 @@ logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory="templates")
 router = APIRouter()
 
-PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
-
 
 def _redirect(url: str) -> RedirectResponse:
     return RedirectResponse(url=url, status_code=303)
@@ -82,12 +80,15 @@ async def dashboard(request: Request, _: None = Depends(auth.require_admin)):
 # ---------------------------------------------------------------- Zugang -----
 
 @router.get("/admin/zugang", response_class=HTMLResponse)
-async def zugang(request: Request, _: None = Depends(auth.require_admin)):
+async def zugang(request: Request, _: None = Depends(auth.require_admin),
+                 gesendet: str | None = None, fehler: str | None = None):
     return templates.TemplateResponse("admin/zugang.html", {
         "request": request,
         "zugangsmodus": settings.zugangsmodus(),
         "links": db.list_zugangslinks(),
-        "basis_url": PUBLIC_BASE_URL,
+        "basis_url": settings.basis_url(),
+        "gesendet": gesendet,
+        "fehler": fehler,
     })
 
 
@@ -101,7 +102,8 @@ async def zugang_modus(request: Request, _: None = Depends(auth.require_admin),
 
 @router.post("/admin/zugang/neu")
 async def zugang_neu(request: Request, _: None = Depends(auth.require_admin),
-                     notiz: str = Form(""), gueltig_tage: str = Form("")):
+                     notiz: str = Form(""), gueltig_tage: str = Form(""),
+                     empfaenger_email: str = Form("")):
     token = secrets.token_urlsafe(24)
     gueltig_bis = None
     try:
@@ -110,8 +112,36 @@ async def zugang_neu(request: Request, _: None = Depends(auth.require_admin),
             gueltig_bis = (datetime.now() + timedelta(days=tage)).isoformat(timespec="seconds")
     except ValueError:
         pass
-    db.create_zugangslink(token, notiz.strip(), gueltig_bis)
+    empfaenger = empfaenger_email.strip()
+    db.create_zugangslink(token, notiz.strip(), gueltig_bis, empfaenger)
+    if empfaenger:
+        link_url = f"{settings.basis_url()}/?z={token}"
+        try:
+            offer.send_invitation(empfaenger, link_url, notiz.strip())
+        except Exception as e:  # noqa: BLE001
+            logger.error("Einladungs-Mail fehlgeschlagen: %s", e)
+            return _redirect("/admin/zugang?fehler=1")
+        return _redirect("/admin/zugang?gesendet=1")
     return _redirect("/admin/zugang")
+
+
+@router.post("/admin/zugang/{link_id}/senden")
+async def zugang_senden(request: Request, link_id: int,
+                        _: None = Depends(auth.require_admin),
+                        empfaenger_email: str = Form("")):
+    link = db.get_zugangslink_by_id(link_id)
+    if link is None:
+        return _redirect("/admin/zugang?fehler=1")
+    empfaenger = (empfaenger_email or link.get("empfaenger_email") or "").strip()
+    if not empfaenger:
+        return _redirect("/admin/zugang?fehler=1")
+    link_url = f"{settings.basis_url()}/?z={link['token']}"
+    try:
+        offer.send_invitation(empfaenger, link_url, link.get("notiz") or "")
+    except Exception as e:  # noqa: BLE001
+        logger.error("Einladungs-Mail fehlgeschlagen: %s", e)
+        return _redirect("/admin/zugang?fehler=1")
+    return _redirect("/admin/zugang?gesendet=1")
 
 
 @router.post("/admin/zugang/{link_id}/deaktivieren")
@@ -193,7 +223,7 @@ async def einstellungen_form(request: Request, _: None = Depends(auth.require_ad
         "soft_tokens": settings.soft_tokens(),
     }
     return templates.TemplateResponse("admin/einstellungen.html", {
-        "request": request, "werte": werte})
+        "request": request, "werte": werte, "ki_anbieter": settings.ki_anbieter()})
 
 
 @router.post("/admin/einstellungen")
@@ -204,4 +234,7 @@ async def einstellungen_speichern(request: Request,
         wert = (form.get(schluessel) or "").strip()
         if wert.isdigit():
             db.set_setting(schluessel, wert)
+    anbieter = (form.get("ki_anbieter") or "").strip()
+    if anbieter in settings.KI_ANBIETER:
+        db.set_setting("ki_anbieter", anbieter)
     return _redirect("/admin/einstellungen")

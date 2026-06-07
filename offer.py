@@ -18,6 +18,7 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 import db
+import settings
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,8 @@ def _render_pdf(data: dict) -> bytes:
 
 
 def _smtp_send(recipient: str, subject: str, html: str, plain: str,
-               pdf_bytes: bytes, pdf_name: str, reply_to: str | None = None) -> None:
+               pdf_bytes: bytes | None = None, pdf_name: str | None = None,
+               reply_to: str | None = None) -> None:
     host = os.environ["SMTP_HOST"]
     port = int(os.environ["SMTP_PORT"])
     user = os.environ["SMTP_USER"]
@@ -60,9 +62,11 @@ def _smtp_send(recipient: str, subject: str, html: str, plain: str,
     alt.attach(MIMEText(html, "html", "utf-8"))
     msg.attach(alt)
 
-    part = MIMEApplication(pdf_bytes, _subtype="pdf")
-    part.add_header("Content-Disposition", "attachment", filename=pdf_name)
-    msg.attach(part)
+    if pdf_bytes is not None:
+        part = MIMEApplication(pdf_bytes, _subtype="pdf")
+        part.add_header("Content-Disposition", "attachment",
+                        filename=pdf_name or "anhang.pdf")
+        msg.attach(part)
 
     with smtplib.SMTP(host, port) as server:
         server.ehlo()
@@ -96,8 +100,7 @@ def create_and_send(session_id: str, data: dict) -> None:
 
 def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str) -> None:
     recipient = os.environ["CONTACT_EMAIL"]
-    base_url = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
-    freigabe_url = f"{base_url}/freigabe/{token}"
+    freigabe_url = f"{settings.basis_url()}/freigabe/{token}"
 
     kunde = data.get("kunde", {})
     titel = data.get("projekt_titel", "IT-Projekt")
@@ -182,3 +185,31 @@ def release_to_customer(token: str) -> dict | None:
     )
     db.mark_released(token)
     return row
+
+
+def send_invitation(empfaenger_email: str, link_url: str, notiz: str = "") -> None:
+    """Sendet einen Einladungslink (ohne Anhang) an den Empfänger.
+
+    Wirft bei Fehlern (fehlende SMTP-Konfiguration o. ä.) – die aufrufende Route
+    fängt das ab und meldet es im Admin zurück.
+    """
+    html = _env.get_template("invitation_email.html").render(
+        link_url=link_url,
+        notiz=notiz,
+    )
+    plain = (
+        "Guten Tag\n\n"
+        "Ralf W. Balz lädt Sie ein, Ihr IT-Projekt mit dem Offerten-Assistenten zu planen. "
+        "Über den folgenden Link starten Sie das Gespräch:\n\n"
+        f"{link_url}\n\n"
+        "Sie können sprechen oder schreiben; am Ende entsteht eine Offerten-Grundlage, die "
+        "Ralf persönlich für Sie kalkuliert.\n\n"
+        "Freundliche Grüsse\nRalf W. Balz\nralfwbalz.ch"
+    )
+    _smtp_send(
+        recipient=empfaenger_email,
+        subject="Ihr Zugang zum Offerten-Assistenten – ralfwbalz.ch",
+        html=html,
+        plain=plain,
+        reply_to=os.environ.get("CONTACT_EMAIL"),
+    )

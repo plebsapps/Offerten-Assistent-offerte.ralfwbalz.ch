@@ -77,6 +77,7 @@ body {
 .messages {
   padding: 18px;
   height: 56vh;
+  height: 56dvh; /* dvh berücksichtigt die eingeblendete Tastatur/Browserleiste auf Mobil */
   min-height: 320px;
   overflow-y: auto;
   display: flex;
@@ -355,3 +356,46 @@ body {
 }
 .transkript .bubble { max-width: 100%; }
 .bubble-rolle { font-size: .75rem; color: var(--muted); margin-bottom: 4px; }
+
+/* ----------------------------------------------------------- Mobil/Smartphone ---- */
+@media (max-width: 600px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 12px 16px;
+  }
+  .brand { font-size: 1.05rem; }
+
+  .wrap {
+    padding: 16px 12px 28px;
+  }
+
+  .intro h1 { font-size: 1.35rem; }
+
+  /* Mehr Platz fürs Gespräch; Tastatur darf die Historie nicht abschneiden. */
+  .messages {
+    height: 62dvh;
+    min-height: 240px;
+    padding: 14px;
+  }
+  .bubble { max-width: 90%; }
+
+  /* Eingabeleiste bleibt beim Scrollen und bei eingeblendeter Tastatur sichtbar. */
+  .composer {
+    position: sticky;
+    bottom: 0;
+    background: var(--card);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  /* Tap-Targets vergrössern. */
+  .composer input[type="text"] { padding: 13px 12px; }
+  .btn-send { padding: 13px 16px; }
+  .mic { width: 48px; height: 48px; }
+
+  .overlay-box { max-width: min(460px, 100% - 32px); padding: 24px 20px; }
+
+  /* Admin-Navigation und breite Tabellen brauchen auf dem Handy Umbruch/Scroll. */
+  .adminnav { flex-wrap: wrap; gap: 10px 14px; margin-left: 10px; }
+  .admin-table { display: block; overflow-x: auto; white-space: nowrap; }
+}
