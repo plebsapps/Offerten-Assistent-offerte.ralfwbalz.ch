@@ -357,6 +357,44 @@ body {
 .transkript .bubble { max-width: 100%; }
 .bubble-rolle { font-size: .75rem; color: var(--muted); margin-bottom: 4px; }
 
+/* ------------------------------------------------------ Einladungslink-Karte ---- */
+.zugang-link-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.zugang-link-url {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.zugang-link-url .link-code {
+  display: block;
+  word-break: break-all;
+  font-size: .85rem;
+}
+.zugang-link-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  font-size: .85rem;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.zugang-link-meta .meta-label { font-weight: 600; color: #475569; }
+.zugang-link-aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  border-top: 1px solid #eef2f7;
+  padding-top: 14px;
+}
+
 /* ----------------------------------------------------------- Mobil/Smartphone ---- */
 @media (max-width: 600px) {
   .topbar {
