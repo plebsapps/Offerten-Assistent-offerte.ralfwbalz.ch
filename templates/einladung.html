@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <title>Zugang nur per Einladung – Offerten-Assistent</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=6">
+  <link rel="stylesheet" href="/static/css/style.css?v=7">
 </head>
 <body>
   <header class="topbar">
     <a href="https://www.ralfwbalz.ch" class="topbar-logo" aria-label="Ralf W. Balz – zur Startseite">
-      <img src="/static/logo-ralfwbalz.svg" alt="Logo Ralf W. Balz">
+      <canvas id="navLogo" width="400" height="400" class="topbar-logo-canvas" aria-label="Logo Ralf W. Balz"></canvas>
     </a>
     <div class="topbar-center">
       <div class="brand">Offerten-Assistent</div>
@@ -129,5 +129,6 @@
     });
   </script>
   {% endif %}
+  <script src="/static/js/logo.js"></script>
 </body>
 </html>

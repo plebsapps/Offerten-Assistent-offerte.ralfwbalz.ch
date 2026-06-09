@@ -27,7 +27,7 @@ body {
   gap: 12px;
 }
 .topbar-logo { display: flex; align-items: center; justify-self: start; }
-.topbar-logo img { width: 120px; height: 120px; display: block; }
+.topbar-logo-canvas { width: 120px; height: 120px; display: block; }
 .topbar-center { text-align: center; }
 .topbar-center .brand { font-weight: 700; font-size: 1.4rem; line-height: 1.2; }
 .topbar-center .powered { color: #93c5fd; font-size: .85rem; margin-top: 2px; }
@@ -429,7 +429,7 @@ body {
     padding: 0 14px;
     gap: 8px;
   }
-  .topbar-logo img { width: 76px; height: 76px; }
+  .topbar-logo-canvas { width: 76px; height: 76px; }
   .topbar-center .brand { font-size: 1.1rem; }
   .topbar-center .powered { font-size: .72rem; }
 

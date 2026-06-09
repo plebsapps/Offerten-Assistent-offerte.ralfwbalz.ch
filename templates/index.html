@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <title>Offerten-Assistent – ralfwbalz.ch</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=6">
+  <link rel="stylesheet" href="/static/css/style.css?v=7">
 </head>
 <body data-homepage="{{ homepage_url }}">
   <header class="topbar">
     <a href="https://www.ralfwbalz.ch" class="topbar-logo" aria-label="Ralf W. Balz – zur Startseite">
-      <img src="/static/logo-ralfwbalz.svg" alt="Logo Ralf W. Balz">
+      <canvas id="navLogo" width="400" height="400" class="topbar-logo-canvas" aria-label="Logo Ralf W. Balz"></canvas>
     </a>
     <div class="topbar-center">
       <div class="brand">Offerten-Assistent</div>
@@ -73,5 +73,6 @@
   </div>
 
   <script src="/static/js/app.js?v=5"></script>
+  <script src="/static/js/logo.js"></script>
 </body>
 </html>
