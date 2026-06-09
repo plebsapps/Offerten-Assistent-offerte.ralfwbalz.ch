@@ -1,0 +1,46 @@
+{% extends "admin/layout.html" %}
+{% block title %}Offerten – Admin{% endblock %}
+{% block content %}
+<h1>Offerten</h1>
+
+{% if offerten %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Erstellt</th><th>Projekt</th><th>Kunde</th><th>Status</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for o in offerten %}
+    <tr>
+      <td class="muted">{{ o.created_at }}</td>
+      <td>{{ o.daten.projekt_titel or "–" }}</td>
+      <td>
+        {{ o.daten.kunde.name or "–" }}
+        <div class="muted">{{ o.daten.kunde.firma or "" }} · {{ o.daten.kunde.email or "" }}</div>
+      </td>
+      <td>
+        {% if o.released_at %}
+        <span class="badge badge-gruen">freigegeben</span>
+        <div class="muted">{{ o.released_at }}</div>
+        {% else %}
+        <span class="badge badge-gelb">nur an Ralf</span>
+        {% endif %}
+      </td>
+      <td class="offerten-aktionen">
+        <a class="btn-link" href="/admin/offerten/{{ o.session_id }}/pdf">PDF</a>
+        {% if not o.released_at %}
+        <form method="post" action="/admin/offerten/{{ o.freigabe_token }}/freigeben"
+              onsubmit="return confirm('Offerte jetzt an den Kunden ({{ o.daten.kunde.email }}) senden?');">
+          <button type="submit" class="btn-send">An Kunden freigeben</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Noch keine Offerten erstellt.</p>
+{% endif %}
+{% endblock %}

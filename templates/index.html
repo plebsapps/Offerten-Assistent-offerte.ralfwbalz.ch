@@ -2,15 +2,21 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <title>Offerten-Assistent – ralfwbalz.ch</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=1">
+  <link rel="stylesheet" href="/static/css/style.css?v=6">
 </head>
-<body>
+<body data-homepage="{{ homepage_url }}">
   <header class="topbar">
-    <div class="brand">Offerten-Assistent</div>
-    <div class="subbrand">ralfwbalz.ch</div>
+    <a href="https://www.ralfwbalz.ch" class="topbar-logo" aria-label="Ralf W. Balz – zur Startseite">
+      <img src="/static/logo-ralfwbalz.svg" alt="Logo Ralf W. Balz">
+    </a>
+    <div class="topbar-center">
+      <div class="brand">Offerten-Assistent</div>
+      <div class="powered">Powered by <a href="https://www.ralfwbalz.ch">www.ralfwbalz.ch</a></div>
+    </div>
+    <a href="/admin/login" class="topbar-login">Login</a>
   </header>
 
   <main class="wrap">
@@ -52,6 +58,20 @@
     </p>
   </main>
 
-  <script src="/static/js/app.js?v=2"></script>
+  <div id="abschlussOverlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>Vielen Dank für das Gespräch!</h2>
+      <p>
+        Ihre Offerten-Grundlage wurde erstellt und an Ralf&nbsp;W.&nbsp;Balz zur persönlichen
+        Prüfung übermittelt. Er meldet sich anschliessend bei Ihnen.
+      </p>
+      <p class="overlay-countdown">
+        Sie werden in <span id="overlayCount">8</span> Sekunden weitergeleitet.
+      </p>
+      <a id="overlayBtn" class="btn-primary" href="#">Zur Homepage von Ralf W. Balz</a>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js?v=5"></script>
 </body>
 </html>

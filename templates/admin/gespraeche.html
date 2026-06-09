@@ -1,0 +1,36 @@
+{% extends "admin/layout.html" %}
+{% block title %}Gespräche – Admin{% endblock %}
+{% block content %}
+<h1>Gespräche</h1>
+
+{% if gespraeche %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Gestartet</th><th>IP</th><th>Fragen</th><th>Token (ein/aus)</th>
+      <th>Offerte</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for g in gespraeche %}
+    <tr>
+      <td class="muted">{{ g.created_at }}</td>
+      <td class="muted">{{ g.ip or "–" }}</td>
+      <td>{{ g.user_turns }}</td>
+      <td class="muted">{{ g.tokens_in or 0 }} / {{ g.tokens_out or 0 }}</td>
+      <td>
+        {% if g.hat_offerte %}
+        <span class="badge badge-gruen">ja</span>
+        {% else %}
+        <span class="badge badge-grau">nein</span>
+        {% endif %}
+      </td>
+      <td><a class="btn-link" href="/admin/gespraeche/{{ g.id }}">Transkript</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Noch keine Gespräche geführt.</p>
+{% endif %}
+{% endblock %}

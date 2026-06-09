@@ -18,6 +18,7 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 import db
+import settings
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,8 @@ def _render_pdf(data: dict) -> bytes:
 
 
 def _smtp_send(recipient: str, subject: str, html: str, plain: str,
-               pdf_bytes: bytes, pdf_name: str, reply_to: str | None = None) -> None:
+               pdf_bytes: bytes | None = None, pdf_name: str | None = None,
+               reply_to: str | None = None) -> None:
     host = os.environ["SMTP_HOST"]
     port = int(os.environ["SMTP_PORT"])
     user = os.environ["SMTP_USER"]
@@ -60,9 +62,11 @@ def _smtp_send(recipient: str, subject: str, html: str, plain: str,
     alt.attach(MIMEText(html, "html", "utf-8"))
     msg.attach(alt)
 
-    part = MIMEApplication(pdf_bytes, _subtype="pdf")
-    part.add_header("Content-Disposition", "attachment", filename=pdf_name)
-    msg.attach(part)
+    if pdf_bytes is not None:
+        part = MIMEApplication(pdf_bytes, _subtype="pdf")
+        part.add_header("Content-Disposition", "attachment",
+                        filename=pdf_name or "anhang.pdf")
+        msg.attach(part)
 
     with smtplib.SMTP(host, port) as server:
         server.ehlo()
@@ -96,8 +100,7 @@ def create_and_send(session_id: str, data: dict) -> None:
 
 def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str) -> None:
     recipient = os.environ["CONTACT_EMAIL"]
-    base_url = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
-    freigabe_url = f"{base_url}/freigabe/{token}"
+    freigabe_url = f"{settings.basis_url()}/freigabe/{token}"
 
     kunde = data.get("kunde", {})
     titel = data.get("projekt_titel", "IT-Projekt")
@@ -182,3 +185,154 @@ def release_to_customer(token: str) -> dict | None:
     )
     db.mark_released(token)
     return row
+
+
+# Anreden mit Vornamen + Du-Form (persönlich), im Gegensatz zu Frau/Herr/Firma (Sie + Nachname).
+DU_ANREDEN = ("männlich", "weiblich")
+
+
+def ist_du_anrede(anrede: str) -> bool:
+    """True bei persönlicher Du-Anrede (männlich/weiblich), sonst förmliches Sie."""
+    return (anrede or "").strip().lower() in DU_ANREDEN
+
+
+def _begruessung(anrede: str = "", name: str = "") -> str:
+    """Persönliche Anrede für die Einladungs-Mail.
+
+    - männlich/weiblich → „Hallo {Vorname}“ (Du)
+    - Frau/Herr → „Guten Tag {Anrede} {Name}“ (Sie, Nachname)
+    - sonst Name/neutral.
+    """
+    anrede = (anrede or "").strip()
+    name = (name or "").strip()
+    if ist_du_anrede(anrede) and name:
+        return f"Hallo {name}"
+    if anrede in ("Frau", "Herr") and name:
+        return f"Guten Tag {anrede} {name}"
+    if name:
+        return f"Guten Tag {name}"
+    return "Guten Tag"
+
+
+def send_invitation(empfaenger_email: str, link_url: str, notiz: str = "",
+                    anrede: str = "", name: str = "") -> None:
+    """Sendet einen Einladungslink (ohne Anhang) an den Empfänger.
+
+    Wirft bei Fehlern (fehlende SMTP-Konfiguration o. ä.) – die aufrufende Route
+    fängt das ab und meldet es im Admin zurück.
+    """
+    begruessung = _begruessung(anrede, name)
+    du = ist_du_anrede(anrede)
+    if du:
+        einladung_text = (
+            "Ralf W. Balz lädt dich ein, dein IT-Projekt im Gespräch mit dem digitalen "
+            "Offerten-Assistenten zu planen. Du kannst sprechen oder schreiben – am Ende "
+            "entsteht eine strukturierte Offerten-Grundlage, die Ralf persönlich für dich "
+            "kalkuliert."
+        )
+        link_hinweis = "Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:"
+        persoenlich_hinweis = "Der Link ist persönlich für dich bestimmt. Bitte nicht weitergeben."
+    else:
+        einladung_text = (
+            "Ralf W. Balz lädt Sie ein, Ihr IT-Projekt im Gespräch mit dem digitalen "
+            "Offerten-Assistenten zu planen. Sie können sprechen oder schreiben – am Ende "
+            "entsteht eine strukturierte Offerten-Grundlage, die Ralf persönlich für Sie "
+            "kalkuliert."
+        )
+        link_hinweis = "Falls der Button nicht funktioniert, kopieren Sie diesen Link in Ihren Browser:"
+        persoenlich_hinweis = "Der Link ist persönlich für Sie bestimmt. Bitte nicht weitergeben."
+    html = _env.get_template("invitation_email.html").render(
+        link_url=link_url,
+        notiz=notiz,
+        begruessung=begruessung,
+        einladung_text=einladung_text,
+        link_hinweis=link_hinweis,
+        persoenlich_hinweis=persoenlich_hinweis,
+    )
+    start_satz = ("Über den folgenden Link startest du das Gespräch:" if du
+                  else "Über den folgenden Link starten Sie das Gespräch:")
+    plain = (
+        f"{begruessung}\n\n"
+        f"{einladung_text}\n\n"
+        f"{start_satz}\n\n"
+        f"{link_url}\n\n"
+        "Freundliche Grüsse\nRalf W. Balz\nralfwbalz.ch"
+    )
+    _smtp_send(
+        recipient=empfaenger_email,
+        subject="Ihr Zugang zum Offerten-Assistenten – ralfwbalz.ch",
+        html=html,
+        plain=plain,
+        reply_to=os.environ.get("CONTACT_EMAIL"),
+    )
+
+
+def send_zugang_code(empfaenger_email: str, code: str, anrede: str = "",
+                     name: str = "", ttl_min: int = 10) -> None:
+    """Sendet einen 6-stelligen Zugangscode (Self-Service) an den Interessenten.
+
+    Wirft bei SMTP-Fehlern – der aufrufende Endpunkt fängt das ab.
+    """
+    begruessung = _begruessung(anrede, name)
+    du = ist_du_anrede(anrede)
+    if du:
+        einleitung = (
+            "du möchtest den Offerten-Assistenten von Ralf W. Balz nutzen. Mit dem "
+            "folgenden Code schaltest du das Gespräch frei:"
+        )
+        hinweis = "Gib den Code im Browser ein, in dem du den Zugang angefragt hast."
+    else:
+        einleitung = (
+            "Sie möchten den Offerten-Assistenten von Ralf W. Balz nutzen. Mit dem "
+            "folgenden Code schalten Sie das Gespräch frei:"
+        )
+        hinweis = "Geben Sie den Code im Browser ein, in dem Sie den Zugang angefragt haben."
+    html = _env.get_template("zugang_code_email.html").render(
+        begruessung=begruessung,
+        einleitung=einleitung,
+        hinweis=hinweis,
+        code=code,
+        ttl_min=ttl_min,
+    )
+    plain = (
+        f"{begruessung}\n\n"
+        f"{einleitung}\n\n"
+        f"    {code}\n\n"
+        f"Der Code ist {ttl_min} Minuten gültig. {hinweis}\n\n"
+        "Freundliche Grüsse\nRalf W. Balz\nralfwbalz.ch"
+    )
+    _smtp_send(
+        recipient=empfaenger_email,
+        subject=f"Ihr Zugangscode: {code} – Offerten-Assistent",
+        html=html,
+        plain=plain,
+        reply_to=os.environ.get("CONTACT_EMAIL"),
+    )
+
+
+def notify_selbst_zugang(empfaenger_email: str, anrede: str = "", name: str = "") -> None:
+    """Kurze Info-Mail an Ralf, wenn sich jemand per Self-Service freigeschaltet hat."""
+    empfaenger = os.environ.get("CONTACT_EMAIL")
+    if not empfaenger:
+        return
+    person = " ".join(t for t in (anrede, name) if t).strip() or "—"
+    zeitpunkt = datetime.now().strftime("%d.%m.%Y um %H:%M Uhr")
+    plain = (
+        "Neue Self-Service-Anmeldung am Offerten-Assistenten:\n\n"
+        f"Name/Anrede: {person}\n"
+        f"E-Mail:      {empfaenger_email}\n"
+        f"Zeitpunkt:   {zeitpunkt}\n"
+    )
+    html = (
+        "<p>Neue Self-Service-Anmeldung am Offerten-Assistenten:</p>"
+        f"<p><strong>Name/Anrede:</strong> {person}<br>"
+        f"<strong>E-Mail:</strong> {empfaenger_email}<br>"
+        f"<strong>Zeitpunkt:</strong> {zeitpunkt}</p>"
+    )
+    _smtp_send(
+        recipient=empfaenger,
+        subject=f"Self-Service-Zugang: {person}",
+        html=html,
+        plain=plain,
+        reply_to=empfaenger_email,
+    )

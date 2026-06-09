@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Zugang nur per Einladung – Offerten-Assistent</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=6">
+</head>
+<body>
+  <header class="topbar">
+    <a href="https://www.ralfwbalz.ch" class="topbar-logo" aria-label="Ralf W. Balz – zur Startseite">
+      <img src="/static/logo-ralfwbalz.svg" alt="Logo Ralf W. Balz">
+    </a>
+    <div class="topbar-center">
+      <div class="brand">Offerten-Assistent</div>
+      <div class="powered">Powered by <a href="https://www.ralfwbalz.ch">www.ralfwbalz.ch</a></div>
+    </div>
+    <a href="/admin/login" class="topbar-login">Login</a>
+  </header>
+
+  <main class="wrap">
+    <section class="intro">
+      <h1>Zugang nur per Einladung</h1>
+      <p>
+        Dieser Offerten-Assistent ist nur über einen persönlichen Einladungslink erreichbar.
+        Falls Sie bereits einen Link erhalten haben, öffnen Sie diesen bitte direkt.
+      </p>
+
+      {% if selbst_zugang %}
+      <p>
+        Noch keinen Link? Fordern Sie sich hier selbst einen Zugang an: Sie erhalten einen
+        6-stelligen Code per E-Mail und geben ihn anschliessend ein.
+      </p>
+
+      <form id="form-code" class="zugang-self">
+        <select name="anrede" required>
+          <option value="">Anrede …</option>
+          <option value="männlich">männlich (Du, Vorname)</option>
+          <option value="weiblich">weiblich (Du, Vorname)</option>
+          <option value="Herr">Herr (Sie, Nachname)</option>
+          <option value="Frau">Frau (Sie, Nachname)</option>
+          <option value="Firma">Firma (Sie, Firmenname)</option>
+        </select>
+        <input type="text" name="name" placeholder="Vorname / Nachname / Firma" required>
+        <input type="email" name="email" placeholder="E-Mail-Adresse" required>
+        <input type="text" name="website" tabindex="-1" autocomplete="off"
+               style="position:absolute;left:-9999px" aria-hidden="true">
+        <button type="submit" class="btn-primary">Code anfordern</button>
+      </form>
+
+      <form id="form-verify" class="zugang-self" style="display:none">
+        <p class="muted">Wir haben Ihnen einen Code an <strong id="ziel-email"></strong> gesendet.</p>
+        <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
+               pattern="[0-9]{6}" maxlength="6" placeholder="6-stelliger Code" required>
+        <button type="submit" class="btn-primary">Code bestätigen</button>
+        <button type="button" id="neu-anfordern" class="btn-link">Neuen Code anfordern</button>
+      </form>
+
+      <p id="zugang-status" class="zugang-status" role="status"></p>
+      {% else %}
+      <p>
+        Noch keinen Link? Senden Sie Ralf&nbsp;W.&nbsp;Balz über das Kontaktformular eine
+        kurze Anfrage – Sie erhalten dann einen persönlichen Link zum Offerten-Assistenten.
+      </p>
+      <a href="https://ralfwbalz.ch/#kontakt" class="btn-primary">Anfrage senden</a>
+      {% endif %}
+    </section>
+  </main>
+
+  {% if selbst_zugang %}
+  <script>
+    const formCode = document.getElementById("form-code");
+    const formVerify = document.getElementById("form-verify");
+    const statusEl = document.getElementById("zugang-status");
+    const zielEmail = document.getElementById("ziel-email");
+
+    function setStatus(text, ok) {
+      statusEl.textContent = text || "";
+      statusEl.style.color = ok ? "#16a34a" : "#dc2626";
+    }
+    async function postForm(url, data) {
+      const res = await fetch(url, { method: "POST", body: data });
+      let json = {};
+      try { json = await res.json(); } catch (e) {}
+      return { ok: res.ok, json };
+    }
+
+    formCode.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setStatus("Code wird gesendet …", true);
+      const btn = formCode.querySelector("button[type=submit]");
+      btn.disabled = true;
+      const { ok, json } = await postForm("/zugang/code", new FormData(formCode));
+      btn.disabled = false;
+      if (ok && json.ok) {
+        zielEmail.textContent = formCode.email.value.trim();
+        formCode.style.display = "none";
+        formVerify.style.display = "";
+        formVerify.code.focus();
+        setStatus("Code gesendet. Bitte prüfen Sie Ihr E-Mail-Postfach.", true);
+      } else {
+        setStatus(json.error || "Es ist ein Fehler aufgetreten.", false);
+      }
+    });
+
+    formVerify.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setStatus("Code wird geprüft …", true);
+      const btn = formVerify.querySelector("button[type=submit]");
+      btn.disabled = true;
+      const data = new FormData();
+      data.append("email", formCode.email.value.trim());
+      data.append("code", formVerify.code.value.trim());
+      const { ok, json } = await postForm("/zugang/verify", data);
+      btn.disabled = false;
+      if (ok && json.ok) {
+        setStatus("Zugang freigeschaltet – Sie werden weitergeleitet …", true);
+        window.location.href = json.redirect || "/";
+      } else {
+        setStatus(json.error || "Es ist ein Fehler aufgetreten.", false);
+      }
+    });
+
+    document.getElementById("neu-anfordern").addEventListener("click", () => {
+      formVerify.style.display = "none";
+      formCode.style.display = "";
+      setStatus("", true);
+    });
+  </script>
+  {% endif %}
+</body>
+</html>

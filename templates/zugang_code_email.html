@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="de">
+<body style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:20px;color:#333">
+  <h2 style="color:#1B2A4A;border-bottom:3px solid #3B82F6;padding-bottom:10px">
+    Ihr Zugangscode
+  </h2>
+
+  <p>{{ begruessung }}</p>
+
+  <p>{{ einleitung }}</p>
+
+  <div style="margin:24px 0;text-align:center">
+    <div style="display:inline-block;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;
+                padding:16px 28px;font-size:34px;font-weight:bold;letter-spacing:8px;color:#1B2A4A">
+      {{ code }}
+    </div>
+    <p style="color:#94a3b8;font-size:13px;margin-top:12px">
+      Der Code ist {{ ttl_min }} Minuten gültig.
+    </p>
+  </div>
+
+  <p style="color:#64748b;font-size:13px">
+    {{ hinweis }} Falls Sie diesen Code nicht angefordert haben, ignorieren Sie diese E-Mail.
+  </p>
+
+  <hr style="margin:26px 0;border:none;border-top:1px solid #e2e8f0">
+  <p style="margin:0">Freundliche Grüsse<br>Ralf W. Balz<br>
+    <a href="https://ralfwbalz.ch" style="color:#3B82F6">ralfwbalz.ch</a></p>
+</body>
+</html>

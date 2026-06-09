@@ -19,13 +19,27 @@ body {
 .topbar {
   background: var(--navy);
   color: #fff;
-  padding: 14px 22px;
-  display: flex;
-  align-items: baseline;
+  height: 132px;            /* gleiche Höhe wie die Kopfzeile auf ralfwbalz.ch */
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   gap: 12px;
 }
-.brand { font-weight: 700; font-size: 1.15rem; }
-.subbrand { color: #93c5fd; font-size: .9rem; }
+.topbar-logo { display: flex; align-items: center; justify-self: start; }
+.topbar-logo img { width: 120px; height: 120px; display: block; }
+.topbar-center { text-align: center; }
+.topbar-center .brand { font-weight: 700; font-size: 1.4rem; line-height: 1.2; }
+.topbar-center .powered { color: #93c5fd; font-size: .85rem; margin-top: 2px; }
+.topbar-center .powered a { color: #93c5fd; text-decoration: none; }
+.topbar-center .powered a:hover { text-decoration: underline; }
+.topbar-login {
+  justify-self: end;
+  color: #fff;
+  text-decoration: none;
+  font-size: .9rem;
+}
+.topbar-login:hover { text-decoration: underline; }
 
 .wrap {
   max-width: 760px;
@@ -60,6 +74,26 @@ body {
 }
 .btn-primary:hover { background: #2563eb; }
 
+.zugang-self {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 380px;
+  margin-top: 14px;
+}
+.zugang-self input,
+.zugang-self select {
+  padding: 11px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
+}
+.zugang-self input:focus,
+.zugang-self select:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
+.zugang-self .btn-primary { width: 100%; }
+.zugang-status { min-height: 1.2em; margin-top: 10px; font-size: 0.95rem; }
+
 .chat {
   background: var(--card);
   border-radius: 12px;
@@ -70,6 +104,7 @@ body {
 .messages {
   padding: 18px;
   height: 56vh;
+  height: 56dvh; /* dvh berücksichtigt die eingeblendete Tastatur/Browserleiste auf Mobil */
   min-height: 320px;
   overflow-y: auto;
   display: flex;
@@ -163,3 +198,271 @@ body {
   margin-top: 18px;
 }
 .legal a { color: var(--blue); }
+
+/* ---------------------------------------------------- Abschluss-Overlay ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, .6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+.overlay-box {
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(15, 23, 42, .25);
+  max-width: 460px;
+  padding: 28px 26px;
+  text-align: center;
+}
+.overlay-box h2 { color: var(--navy); margin-top: 0; }
+.overlay-box p { color: var(--muted); line-height: 1.6; }
+.overlay-countdown { font-size: .9rem; }
+
+/* --------------------------------------------------------------- Admin ----- */
+.adminnav {
+  display: flex;
+  gap: 16px;
+  margin-left: 16px;
+  font-size: .9rem;
+}
+.adminnav a { color: #cbd5e1; text-decoration: none; }
+.adminnav a:hover { color: #fff; }
+.adminnav-logout {
+  margin-left: auto;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: .9rem;
+}
+.adminnav-logout:hover { color: #fff; }
+
+.admin-wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+.admin-wrap h1 { color: var(--navy); font-size: 1.5rem; }
+.admin-wrap h2 { color: var(--navy); font-size: 1.1rem; margin-top: 0; }
+
+.admin-login {
+  max-width: 360px;
+  margin: 60px auto;
+  padding: 0 16px;
+}
+.admin-login h1 { color: var(--navy); }
+
+.admin-card {
+  background: var(--card);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.admin-card label {
+  display: block;
+  font-size: .9rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.admin-card label input,
+.admin-card label select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.inline-form input,
+.inline-form select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: .95rem;
+}
+
+.muted { color: var(--muted); }
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--blue);
+  cursor: pointer;
+  padding: 0;
+  font-size: .9rem;
+  text-decoration: none;
+}
+.btn-link:hover { text-decoration: underline; }
+
+.banner-error {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: .92rem;
+}
+
+.kennzahlen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.kennzahl {
+  background: var(--card);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px;
+  text-align: center;
+}
+.kennzahl-wert { font-size: 1.8rem; font-weight: 700; color: var(--navy); }
+.kennzahl-label { color: var(--muted); font-size: .85rem; margin-top: 4px; }
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: .9rem;
+}
+.admin-table th {
+  text-align: left;
+  background: #f8fafc;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 10px 12px;
+}
+.admin-table td { padding: 10px 12px; border-top: 1px solid #eef2f7; vertical-align: top; }
+.row-inaktiv { opacity: .55; }
+.link-code { font-size: .8rem; word-break: break-all; }
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: .78rem;
+}
+.badge-gruen { background: #dcfce7; color: #15803d; }
+.badge-gelb { background: #fef3c7; color: #92400e; }
+.badge-grau { background: #e2e8f0; color: #475569; }
+
+.offerten-aktionen {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.gespraech-kopf {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.transkript {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.transkript .bubble { max-width: 100%; }
+.bubble-rolle { font-size: .75rem; color: var(--muted); margin-bottom: 4px; }
+
+/* ------------------------------------------------------ Einladungslink-Karte ---- */
+.zugang-link-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.zugang-link-url {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.zugang-link-url .link-code {
+  display: block;
+  word-break: break-all;
+  font-size: .85rem;
+}
+.zugang-link-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  font-size: .85rem;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.zugang-link-meta .meta-label { font-weight: 600; color: #475569; }
+.zugang-link-aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  border-top: 1px solid #eef2f7;
+  padding-top: 14px;
+}
+
+/* ----------------------------------------------------------- Mobil/Smartphone ---- */
+@media (max-width: 600px) {
+  .topbar {
+    height: 92px;
+    padding: 0 14px;
+    gap: 8px;
+  }
+  .topbar-logo img { width: 76px; height: 76px; }
+  .topbar-center .brand { font-size: 1.1rem; }
+  .topbar-center .powered { font-size: .72rem; }
+
+  .wrap {
+    padding: 16px 12px 28px;
+  }
+
+  .intro h1 { font-size: 1.35rem; }
+
+  /* Mehr Platz fürs Gespräch; Tastatur darf die Historie nicht abschneiden. */
+  .messages {
+    height: 62dvh;
+    min-height: 240px;
+    padding: 14px;
+  }
+  .bubble { max-width: 90%; }
+
+  /* Eingabeleiste bleibt beim Scrollen und bei eingeblendeter Tastatur sichtbar. */
+  .composer {
+    position: sticky;
+    bottom: 0;
+    background: var(--card);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  /* Tap-Targets vergrössern. */
+  .composer input[type="text"] { padding: 13px 12px; }
+  .btn-send { padding: 13px 16px; }
+  .mic { width: 48px; height: 48px; }
+
+  .overlay-box { max-width: min(460px, 100% - 32px); padding: 24px 20px; }
+
+  /* Admin-Navigation und breite Tabellen brauchen auf dem Handy Umbruch/Scroll. */
+  .adminnav { flex-wrap: wrap; gap: 10px 14px; margin-left: 10px; }
+  .admin-table { display: block; overflow-x: auto; white-space: nowrap; }
+}

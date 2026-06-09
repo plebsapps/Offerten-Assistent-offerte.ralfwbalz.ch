@@ -1,0 +1,39 @@
+{% extends "admin/layout.html" %}
+{% block title %}Einstellungen – Admin{% endblock %}
+{% block content %}
+<h1>Einstellungen</h1>
+
+<form method="post" action="/admin/einstellungen" class="admin-card">
+  <h2>Gesprächs-KI</h2>
+  <p class="muted">Welches Sprachmodell führt das Beratungsgespräch und erstellt die Offerte.</p>
+  <label>KI-Anbieter
+    <select name="ki_anbieter">
+      <option value="claude" {% if ki_anbieter == "claude" %}selected{% endif %}>Claude (Anthropic)</option>
+      <option value="openai" {% if ki_anbieter == "openai" %}selected{% endif %}>ChatGPT (OpenAI)</option>
+    </select>
+  </label>
+  <button type="submit" class="btn-primary">Speichern</button>
+</form>
+
+<p class="muted">
+  Kostenbremse: Greift, was zuerst erreicht wird – Anzahl Kundenfragen (Turns) oder
+  verbrauchte Token. Bei der <em>Soft</em>-Schwelle leitet der Assistent sanft zum Abschluss
+  über; bei der <em>Hard</em>-Schwelle endet das Gespräch.
+</p>
+
+<form method="post" action="/admin/einstellungen" class="admin-card">
+  <label>Soft-Limit Turns (Abschluss einleiten)
+    <input type="number" name="soft_turns" min="1" value="{{ werte.soft_turns }}">
+  </label>
+  <label>Hard-Limit Turns (Gespräch endet)
+    <input type="number" name="max_turns" min="1" value="{{ werte.max_turns }}">
+  </label>
+  <label>Soft-Limit Token
+    <input type="number" name="soft_tokens" min="1" value="{{ werte.soft_tokens }}">
+  </label>
+  <label>Hard-Limit Token
+    <input type="number" name="max_tokens" min="1" value="{{ werte.max_tokens }}">
+  </label>
+  <button type="submit" class="btn-primary">Speichern</button>
+</form>
+{% endblock %}

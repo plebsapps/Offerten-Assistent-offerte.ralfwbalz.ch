@@ -1,0 +1,39 @@
+{% extends "admin/layout.html" %}
+{% block title %}Dashboard – Admin{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="kennzahlen">
+  <div class="kennzahl">
+    <div class="kennzahl-wert">{{ kennzahlen.gespraeche_gesamt }}</div>
+    <div class="kennzahl-label">Gespräche gesamt</div>
+  </div>
+  <div class="kennzahl">
+    <div class="kennzahl-wert">{{ kennzahlen.gespraeche_heute }}</div>
+    <div class="kennzahl-label">Gespräche heute</div>
+  </div>
+  <div class="kennzahl">
+    <div class="kennzahl-wert">{{ kennzahlen.offerten_gesamt }}</div>
+    <div class="kennzahl-label">Offerten erstellt</div>
+  </div>
+  <div class="kennzahl">
+    <div class="kennzahl-wert">{{ kennzahlen.offerten_offen }}</div>
+    <div class="kennzahl-label">noch nicht freigegeben</div>
+  </div>
+  <div class="kennzahl">
+    <div class="kennzahl-wert">{{ "{:,}".format(kennzahlen.tokens_gesamt).replace(",", "'") }}</div>
+    <div class="kennzahl-label">Token gesamt</div>
+  </div>
+</div>
+
+<div class="admin-card">
+  <p>Zugangsmodus aktuell:
+    {% if zugangsmodus == "einladung" %}
+    <strong>Nur per Einladung</strong>
+    {% else %}
+    <strong>Öffentlich</strong>
+    {% endif %}
+    – <a href="/admin/zugang">ändern</a>
+  </p>
+</div>
+{% endblock %}

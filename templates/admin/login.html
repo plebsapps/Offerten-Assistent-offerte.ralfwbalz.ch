@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Admin-Login – Offerten-Assistent</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=6">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Offerten-Assistent</div>
+    <div class="subbrand">ralfwbalz.ch</div>
+  </header>
+
+  <main class="admin-login">
+    <h1>Administration</h1>
+    {% if fehler %}
+    <div class="banner-error">{{ fehler }}</div>
+    {% endif %}
+    <form method="post" action="/admin/login" class="admin-card">
+      <label>Benutzer
+        <input name="benutzer" autocomplete="username" required>
+      </label>
+      <label>Passwort
+        <input name="passwort" type="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="btn-primary">Anmelden</button>
+    </form>
+  </main>
+</body>
+</html>

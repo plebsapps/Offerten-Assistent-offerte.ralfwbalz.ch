@@ -46,9 +46,50 @@ def init() -> None:
                 released_at     TEXT,
                 created_at      TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS einstellungen (
+                schluessel  TEXT PRIMARY KEY,
+                wert        TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS zugangslinks (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                token           TEXT UNIQUE NOT NULL,
+                notiz           TEXT,
+                created_at      TEXT NOT NULL,
+                gueltig_bis     TEXT,
+                deaktiviert     INTEGER NOT NULL DEFAULT 0,
+                letzte_nutzung  TEXT,
+                empfaenger_email TEXT,
+                anrede          TEXT,
+                name            TEXT
+            );
+            CREATE TABLE IF NOT EXISTS zugang_codes (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                email           TEXT NOT NULL,
+                anrede          TEXT,
+                name            TEXT,
+                code            TEXT NOT NULL,
+                ip              TEXT,
+                created_at      TEXT NOT NULL,
+                gueltig_bis     TEXT NOT NULL,
+                versuche        INTEGER NOT NULL DEFAULT 0,
+                verifiziert_am  TEXT
+            );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
+            CREATE INDEX IF NOT EXISTS idx_zugang_codes_email ON zugang_codes(email);
             """
         )
+        # Migrationen für bestehende DBs: Token-Verbrauch je Session nachrüsten.
+        for spalte in ("tokens_in", "tokens_out"):
+            try:
+                c.execute(f"ALTER TABLE sessions ADD COLUMN {spalte} INTEGER NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass  # Spalte existiert bereits
+        # Migration: Empfänger-Daten je Einladungslink nachrüsten.
+        for spalte in ("empfaenger_email", "anrede", "name"):
+            try:
+                c.execute(f"ALTER TABLE zugangslinks ADD COLUMN {spalte} TEXT")
+            except sqlite3.OperationalError:
+                pass  # Spalte existiert bereits
 
 
 def _now() -> str:
@@ -128,3 +169,216 @@ def mark_released(token: str) -> None:
             "UPDATE offers SET released_at = ? WHERE freigabe_token = ?",
             (_now(), token),
         )
+
+
+# ----------------------------------------------------------- Einstellungen ----
+
+def get_setting(key: str, default: str = "") -> str:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT wert FROM einstellungen WHERE schluessel = ?", (key,)
+        ).fetchone()
+        return row["wert"] if row else default
+
+
+def set_setting(key: str, wert: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO einstellungen (schluessel, wert) VALUES (?, ?) "
+            "ON CONFLICT(schluessel) DO UPDATE SET wert = excluded.wert",
+            (key, wert),
+        )
+
+
+# ------------------------------------------------------------ Zugangslinks ----
+
+def create_zugangslink(token: str, notiz: str, gueltig_bis: str | None,
+                       empfaenger_email: str = "", anrede: str = "", name: str = "") -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO zugangslinks "
+            "(token, notiz, created_at, gueltig_bis, empfaenger_email, anrede, name) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (token, notiz, _now(), gueltig_bis, empfaenger_email, anrede, name),
+        )
+
+
+def get_zugangslink_by_id(link_id: int) -> dict | None:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM zugangslinks WHERE id = ?", (link_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def list_zugangslinks() -> list[dict]:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT * FROM zugangslinks ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_zugangslink(token: str) -> dict | None:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM zugangslinks WHERE token = ?", (token,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def set_zugangslink_deaktiviert(link_id: int, deaktiviert: bool) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugangslinks SET deaktiviert = ? WHERE id = ?",
+            (1 if deaktiviert else 0, link_id),
+        )
+
+
+def set_zugangslink_gueltig_bis(link_id: int, gueltig_bis: str | None) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugangslinks SET gueltig_bis = ? WHERE id = ?",
+            (gueltig_bis, link_id),
+        )
+
+
+def touch_zugangslink(token: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugangslinks SET letzte_nutzung = ? WHERE token = ?",
+            (_now(), token),
+        )
+
+
+# ----------------------------------------------------------- Zugang-Codes -----
+# Self-Service-Zugang per E-Mail (OTP): Interessent fordert einen 6-stelligen Code an,
+# gibt ihn ein und ist damit freigeschaltet. Codes sind kurzlebig (gueltig_bis).
+
+def create_zugang_code(email: str, anrede: str, name: str, code: str,
+                       ip: str, gueltig_bis: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO zugang_codes "
+            "(email, anrede, name, code, ip, created_at, gueltig_bis) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (email, anrede, name, code, ip, _now(), gueltig_bis),
+        )
+
+
+def get_aktiver_zugang_code(email: str) -> dict | None:
+    """Neuester noch nicht verifizierter Code für diese E-Mail (oder None)."""
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM zugang_codes WHERE email = ? AND verifiziert_am IS NULL "
+            "ORDER BY id DESC LIMIT 1",
+            (email,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def increment_zugang_code_versuche(code_id: int) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugang_codes SET versuche = versuche + 1 WHERE id = ?", (code_id,)
+        )
+
+
+def mark_zugang_code_verifiziert(code_id: int) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugang_codes SET verifiziert_am = ? WHERE id = ?",
+            (_now(), code_id),
+        )
+
+
+def letzter_code_zeitpunkt(email: str) -> str | None:
+    """created_at des zuletzt angeforderten Codes (für die Resend-Sperre)."""
+    with _conn() as c:
+        row = c.execute(
+            "SELECT created_at FROM zugang_codes WHERE email = ? "
+            "ORDER BY id DESC LIMIT 1",
+            (email,),
+        ).fetchone()
+        return row["created_at"] if row else None
+
+
+def count_recent_zugang_codes_for_ip(ip: str, within_seconds: int) -> int:
+    cutoff = datetime.fromtimestamp(time.time() - within_seconds).isoformat(timespec="seconds")
+    with _conn() as c:
+        row = c.execute(
+            "SELECT COUNT(*) AS n FROM zugang_codes WHERE ip = ? AND created_at >= ?",
+            (ip, cutoff),
+        ).fetchone()
+        return row["n"]
+
+
+def list_verifizierte_zugaenge() -> list[dict]:
+    """Erfolgreiche Self-Service-Anmeldungen (für die Admin-Anzeige), neueste zuerst."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT * FROM zugang_codes WHERE verifiziert_am IS NOT NULL "
+            "ORDER BY verifiziert_am DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+# ----------------------------------------------------------- Token-Verbrauch --
+
+def add_session_usage(session_id: str, tokens_in: int, tokens_out: int) -> None:
+    """Schreibt den Token-Verbrauch einer Runde kumulativ in die Session."""
+    with _conn() as c:
+        c.execute(
+            "UPDATE sessions SET tokens_in = tokens_in + ?, tokens_out = tokens_out + ? "
+            "WHERE id = ?",
+            (tokens_in, tokens_out, session_id),
+        )
+
+
+def get_session_usage(session_id: str) -> tuple[int, int]:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT tokens_in, tokens_out FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+        if not row:
+            return (0, 0)
+        return (row["tokens_in"] or 0, row["tokens_out"] or 0)
+
+
+# -------------------------------------------------------------- Admin-Listen --
+
+def list_sessions() -> list[dict]:
+    """Sessions mit Turn-Zahlen, Token-Verbrauch und Offerten-Flag (für den Admin)."""
+    with _conn() as c:
+        rows = c.execute(
+            """
+            SELECT s.id, s.created_at, s.ip, s.status, s.tokens_in, s.tokens_out,
+                   (SELECT COUNT(*) FROM messages m
+                      WHERE m.session_id = s.id AND m.role = 'user') AS user_turns,
+                   (SELECT COUNT(*) FROM messages m
+                      WHERE m.session_id = s.id) AS msg_count,
+                   (SELECT COUNT(*) FROM offers o
+                      WHERE o.session_id = s.id) AS hat_offerte
+            FROM sessions s
+            ORDER BY s.created_at DESC
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def list_offers() -> list[dict]:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, session_id, data_json, pdf_path, freigabe_token, "
+            "released_at, created_at FROM offers ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_offer_by_session(session_id: str) -> dict | None:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM offers WHERE session_id = ? ORDER BY id DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        return dict(row) if row else None
