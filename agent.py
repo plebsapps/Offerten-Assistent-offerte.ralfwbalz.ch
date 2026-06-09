@@ -136,17 +136,28 @@ def _kontakt_hinweis(kontakt: dict | None) -> str:
     email = (kontakt.get("email") or "").strip()
     if not (name or email):
         return ""
-    anrede_name = " ".join(t for t in (anrede, name) if t).strip()
     z = ["", "WICHTIG – Der Gesprächspartner ist bereits bekannt und persönlich eingeladen:"]
-    if anrede_name:
-        z.append(f"- Anrede und Name: {anrede_name}")
+    if offer.ist_du_anrede(anrede):
+        if name:
+            z.append(f"- Vorname: {name}")
+    else:
+        anrede_name = " ".join(t for t in (anrede, name) if t).strip()
+        if anrede_name:
+            z.append(f"- Anrede und Name: {anrede_name}")
     if email:
         z.append(f"- E-Mail-Adresse: {email} (dorthin wurde der Einladungslink gesendet)")
-    z.append(
-        "Sprich die Person ab deiner ersten Antwort persönlich und mit korrekter Anrede an "
-        "(z. B. „Guten Tag, Frau Muster“ oder „Guten Tag, Herr Muster“). Lautet die Anrede "
-        "„Firma“, ist der Name ein Unternehmen – wähle dann eine passende, höfliche Ansprache."
-    )
+    if offer.ist_du_anrede(anrede):
+        z.append(
+            "Sprich die Person ab deiner ersten Antwort persönlich mit ihrem Vornamen und "
+            "durchgehend in der Du-Form an (z. B. „Hallo Rainer“). Bleibe beim Du, kein „Sie“."
+        )
+    else:
+        z.append(
+            "Sprich die Person ab deiner ersten Antwort persönlich, in der Sie-Form und mit "
+            "korrekter Anrede an (z. B. „Guten Tag, Frau Muster“ oder „Guten Tag, Herr Muster“). "
+            "Lautet die Anrede „Firma“, ist der Name ein Unternehmen – wähle dann eine passende, "
+            "höfliche Ansprache."
+        )
     if email:
         z.append(
             f"Frage NICHT nach Name oder E-Mail-Adresse – beides ist bekannt. Bestätige die "

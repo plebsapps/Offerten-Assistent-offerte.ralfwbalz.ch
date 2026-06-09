@@ -19,15 +19,22 @@ body {
 .topbar {
   background: var(--navy);
   color: #fff;
-  padding: 14px 22px;
-  display: flex;
-  align-items: baseline;
+  height: 132px;            /* gleiche Höhe wie die Kopfzeile auf ralfwbalz.ch */
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   gap: 12px;
 }
-.brand { font-weight: 700; font-size: 1.15rem; }
-.subbrand { color: #93c5fd; font-size: .9rem; }
+.topbar-logo { display: flex; align-items: center; justify-self: start; }
+.topbar-logo img { width: 120px; height: 120px; display: block; }
+.topbar-center { text-align: center; }
+.topbar-center .brand { font-weight: 700; font-size: 1.4rem; line-height: 1.2; }
+.topbar-center .powered { color: #93c5fd; font-size: .85rem; margin-top: 2px; }
+.topbar-center .powered a { color: #93c5fd; text-decoration: none; }
+.topbar-center .powered a:hover { text-decoration: underline; }
 .topbar-login {
-  margin-left: auto;
+  justify-self: end;
   color: #fff;
   text-decoration: none;
   font-size: .9rem;
@@ -66,6 +73,26 @@ body {
   margin-top: 8px;
 }
 .btn-primary:hover { background: #2563eb; }
+
+.zugang-self {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 380px;
+  margin-top: 14px;
+}
+.zugang-self input,
+.zugang-self select {
+  padding: 11px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
+}
+.zugang-self input:focus,
+.zugang-self select:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
+.zugang-self .btn-primary { width: 100%; }
+.zugang-status { min-height: 1.2em; margin-top: 10px; font-size: 0.95rem; }
 
 .chat {
   background: var(--card);
@@ -398,11 +425,13 @@ body {
 /* ----------------------------------------------------------- Mobil/Smartphone ---- */
 @media (max-width: 600px) {
   .topbar {
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    padding: 12px 16px;
+    height: 92px;
+    padding: 0 14px;
+    gap: 8px;
   }
-  .brand { font-size: 1.05rem; }
+  .topbar-logo img { width: 76px; height: 76px; }
+  .topbar-center .brand { font-size: 1.1rem; }
+  .topbar-center .powered { font-size: .72rem; }
 
   .wrap {
     padding: 16px 12px 28px;

@@ -85,6 +85,8 @@ async def zugang(request: Request, _: None = Depends(auth.require_admin),
     return templates.TemplateResponse("admin/zugang.html", {
         "request": request,
         "zugangsmodus": settings.zugangsmodus(),
+        "selbst_zugang": settings.selbst_zugang_aktiv(),
+        "selbst_anmeldungen": db.list_verifizierte_zugaenge(),
         "links": db.list_zugangslinks(),
         "basis_url": settings.basis_url(),
         "gesendet": gesendet,
@@ -97,6 +99,13 @@ async def zugang_modus(request: Request, _: None = Depends(auth.require_admin),
                        modus: str = Form(...)):
     if modus in settings.ZUGANGSMODI:
         db.set_setting("zugangsmodus", modus)
+    return _redirect("/admin/zugang")
+
+
+@router.post("/admin/zugang/selbst")
+async def zugang_selbst(request: Request, _: None = Depends(auth.require_admin),
+                        aktiv: str = Form("aus")):
+    db.set_setting("selbst_zugang", "an" if aktiv == "an" else "aus")
     return _redirect("/admin/zugang")
 
 
@@ -145,6 +154,22 @@ async def zugang_senden(request: Request, link_id: int,
         logger.error("Einladungs-Mail fehlgeschlagen: %s", e)
         return _redirect("/admin/zugang?fehler=1")
     return _redirect("/admin/zugang?gesendet=1")
+
+
+@router.post("/admin/zugang/{link_id}/verlaengern")
+async def zugang_verlaengern(request: Request, link_id: int,
+                             _: None = Depends(auth.require_admin),
+                             gueltig_tage: str = Form("")):
+    # Leer/0 → unbegrenzt, sonst ab heute neu für so viele Tage gültig.
+    gueltig_bis = None
+    try:
+        tage = int(gueltig_tage)
+        if tage > 0:
+            gueltig_bis = (datetime.now() + timedelta(days=tage)).isoformat(timespec="seconds")
+    except ValueError:
+        pass
+    db.set_zugangslink_gueltig_bis(link_id, gueltig_bis)
+    return _redirect("/admin/zugang")
 
 
 @router.post("/admin/zugang/{link_id}/deaktivieren")

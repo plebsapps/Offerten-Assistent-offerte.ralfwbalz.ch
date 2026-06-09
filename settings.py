@@ -30,6 +30,14 @@ def zugangsmodus() -> str:
     return wert if wert in ZUGANGSMODI else "oeffentlich"
 
 
+def selbst_zugang_aktiv() -> bool:
+    """Self-Service-Zugang (E-Mail + Code) im Einladungsmodus erlaubt? Im Admin schaltbar.
+
+    Nur wirksam, wenn ``zugangsmodus() == 'einladung'``. Default: aus.
+    """
+    return db.get_setting("selbst_zugang", "aus") == "an"
+
+
 def basis_url() -> str:
     """Öffentliche Basis-URL ohne Trailing-Slash (für Einladungs- und Freigabe-Links).
 

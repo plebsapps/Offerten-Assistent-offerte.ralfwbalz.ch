@@ -62,7 +62,20 @@ def init() -> None:
                 anrede          TEXT,
                 name            TEXT
             );
+            CREATE TABLE IF NOT EXISTS zugang_codes (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                email           TEXT NOT NULL,
+                anrede          TEXT,
+                name            TEXT,
+                code            TEXT NOT NULL,
+                ip              TEXT,
+                created_at      TEXT NOT NULL,
+                gueltig_bis     TEXT NOT NULL,
+                versuche        INTEGER NOT NULL DEFAULT 0,
+                verifiziert_am  TEXT
+            );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
+            CREATE INDEX IF NOT EXISTS idx_zugang_codes_email ON zugang_codes(email);
             """
         )
         # Migrationen für bestehende DBs: Token-Verbrauch je Session nachrüsten.
@@ -222,12 +235,92 @@ def set_zugangslink_deaktiviert(link_id: int, deaktiviert: bool) -> None:
         )
 
 
+def set_zugangslink_gueltig_bis(link_id: int, gueltig_bis: str | None) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugangslinks SET gueltig_bis = ? WHERE id = ?",
+            (gueltig_bis, link_id),
+        )
+
+
 def touch_zugangslink(token: str) -> None:
     with _conn() as c:
         c.execute(
             "UPDATE zugangslinks SET letzte_nutzung = ? WHERE token = ?",
             (_now(), token),
         )
+
+
+# ----------------------------------------------------------- Zugang-Codes -----
+# Self-Service-Zugang per E-Mail (OTP): Interessent fordert einen 6-stelligen Code an,
+# gibt ihn ein und ist damit freigeschaltet. Codes sind kurzlebig (gueltig_bis).
+
+def create_zugang_code(email: str, anrede: str, name: str, code: str,
+                       ip: str, gueltig_bis: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO zugang_codes "
+            "(email, anrede, name, code, ip, created_at, gueltig_bis) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (email, anrede, name, code, ip, _now(), gueltig_bis),
+        )
+
+
+def get_aktiver_zugang_code(email: str) -> dict | None:
+    """Neuester noch nicht verifizierter Code für diese E-Mail (oder None)."""
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM zugang_codes WHERE email = ? AND verifiziert_am IS NULL "
+            "ORDER BY id DESC LIMIT 1",
+            (email,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def increment_zugang_code_versuche(code_id: int) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugang_codes SET versuche = versuche + 1 WHERE id = ?", (code_id,)
+        )
+
+
+def mark_zugang_code_verifiziert(code_id: int) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE zugang_codes SET verifiziert_am = ? WHERE id = ?",
+            (_now(), code_id),
+        )
+
+
+def letzter_code_zeitpunkt(email: str) -> str | None:
+    """created_at des zuletzt angeforderten Codes (für die Resend-Sperre)."""
+    with _conn() as c:
+        row = c.execute(
+            "SELECT created_at FROM zugang_codes WHERE email = ? "
+            "ORDER BY id DESC LIMIT 1",
+            (email,),
+        ).fetchone()
+        return row["created_at"] if row else None
+
+
+def count_recent_zugang_codes_for_ip(ip: str, within_seconds: int) -> int:
+    cutoff = datetime.fromtimestamp(time.time() - within_seconds).isoformat(timespec="seconds")
+    with _conn() as c:
+        row = c.execute(
+            "SELECT COUNT(*) AS n FROM zugang_codes WHERE ip = ? AND created_at >= ?",
+            (ip, cutoff),
+        ).fetchone()
+        return row["n"]
+
+
+def list_verifizierte_zugaenge() -> list[dict]:
+    """Erfolgreiche Self-Service-Anmeldungen (für die Admin-Anzeige), neueste zuerst."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT * FROM zugang_codes WHERE verifiziert_am IS NOT NULL "
+            "ORDER BY verifiziert_am DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 # ----------------------------------------------------------- Token-Verbrauch --

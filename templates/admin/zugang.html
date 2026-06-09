@@ -25,25 +25,66 @@
 </div>
 
 <div class="admin-card">
+  <h2>Self-Service-Zugang</h2>
+  <p class="muted">
+    Wenn aktiv, können Interessenten sich im <strong>Einladungsmodus</strong> selbst
+    freischalten: Sie geben Anrede, Name und E-Mail an, erhalten einen 6-stelligen Code
+    per E-Mail und schalten damit das Gespräch frei. Du bekommst bei jeder Anmeldung eine
+    kurze Info-Mail.
+    {% if zugangsmodus != "einladung" %}
+    <br><strong>Hinweis:</strong> wirkt nur im Modus „Nur per Einladung“ (oben umschalten).
+    {% endif %}
+  </p>
+  <form method="post" action="/admin/zugang/selbst" class="inline-form">
+    <select name="aktiv">
+      <option value="aus" {% if not selbst_zugang %}selected{% endif %}>aus</option>
+      <option value="an" {% if selbst_zugang %}selected{% endif %}>an</option>
+    </select>
+    <button type="submit" class="btn-send">Speichern</button>
+  </form>
+</div>
+
+<div class="admin-card">
   <h2>Neuen Einladungslink erzeugen</h2>
   <form method="post" action="/admin/zugang/neu" class="inline-form">
     <select name="anrede">
       <option value="">Anrede …</option>
-      <option value="Frau">Frau</option>
-      <option value="Herr">Herr</option>
-      <option value="Firma">Firma</option>
+      <option value="männlich">männlich (Du, Vorname)</option>
+      <option value="weiblich">weiblich (Du, Vorname)</option>
+      <option value="Herr">Herr (Sie, Nachname)</option>
+      <option value="Frau">Frau (Sie, Nachname)</option>
+      <option value="Firma">Firma (Sie, Firmenname)</option>
     </select>
-    <input type="text" name="name" placeholder="Name / Firma">
+    <input type="text" name="name" placeholder="Vorname / Nachname / Firma">
     <input type="email" name="empfaenger_email" placeholder="E-Mail (optional – Link direkt senden)">
     <input type="number" name="gueltig_tage" min="1" placeholder="gültig (Tage, optional)">
     <input type="text" name="notiz" placeholder="interne Notiz (optional)">
     <button type="submit" class="btn-primary">Link erzeugen</button>
   </form>
   <p class="muted">
-    Anrede und Name sorgen für die persönliche Ansprache im Chat und in der E-Mail. Ist eine
+    Anrede und Name sorgen für die persönliche Ansprache im Chat und in der E-Mail.
+    <strong>männlich/weiblich</strong> = Du-Form mit Vornamen („Hallo Rainer“),
+    <strong>Herr/Frau/Firma</strong> = Sie-Form mit Nachname bzw. Firmenname. Ist eine
     E-Mail angegeben, wird der Link direkt an diese Adresse versendet.
   </p>
 </div>
+
+{% if selbst_anmeldungen %}
+<h2>Self-Service-Anmeldungen</h2>
+{% for a in selbst_anmeldungen %}
+<div class="admin-card zugang-link">
+  <div class="zugang-link-kopf">
+    <strong>{{ [a.anrede, a.name]|select|join(" ") or a.email }}</strong>
+    <span class="badge badge-gruen">freigeschaltet</span>
+  </div>
+  <div class="zugang-link-meta">
+    <span><span class="meta-label">E-Mail:</span> {{ a.email }}</span>
+    <span><span class="meta-label">Anrede:</span> {{ a.anrede or "–" }}</span>
+    <span><span class="meta-label">Freigeschaltet:</span> {{ a.verifiziert_am }}</span>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
 
 <h2>Einladungslinks</h2>
 {% if links %}
@@ -74,6 +115,10 @@
     <form method="post" action="/admin/zugang/{{ l.id }}/senden" class="inline-form">
       <input type="email" name="empfaenger_email" placeholder="E-Mail" value="{{ l.empfaenger_email or '' }}">
       <button type="submit" class="btn-send">Per E-Mail senden</button>
+    </form>
+    <form method="post" action="/admin/zugang/{{ l.id }}/verlaengern" class="inline-form">
+      <input type="number" name="gueltig_tage" min="0" placeholder="Tage (0 = unbegrenzt)">
+      <button type="submit" class="btn-send">Gültigkeit setzen</button>
     </form>
     <form method="post" action="/admin/zugang/{{ l.id }}/deaktivieren">
       {% if l.deaktiviert %}
