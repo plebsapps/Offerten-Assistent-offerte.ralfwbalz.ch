@@ -223,16 +223,32 @@ body {
 .overlay-countdown { font-size: .9rem; }
 
 /* --------------------------------------------------------------- Admin ----- */
+.admin-topbar {
+  background: var(--navy);
+  color: #fff;
+  padding: 14px 22px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+}
+.admin-title {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.4rem;
+  white-space: nowrap;
+}
 .adminnav {
+  justify-self: start;
   display: flex;
   gap: 16px;
-  margin-left: 16px;
   font-size: .9rem;
 }
 .adminnav a { color: #cbd5e1; text-decoration: none; }
 .adminnav a:hover { color: #fff; }
+.adminnav a.active { color: #fff; font-weight: 700; }
 .adminnav-logout {
-  margin-left: auto;
+  justify-self: end;
   color: #cbd5e1;
   text-decoration: none;
   font-size: .9rem;
@@ -462,7 +478,17 @@ body {
 
   .overlay-box { max-width: min(460px, 100% - 32px); padding: 24px 20px; }
 
-  /* Admin-Navigation und breite Tabellen brauchen auf dem Handy Umbruch/Scroll. */
-  .adminnav { flex-wrap: wrap; gap: 10px 14px; margin-left: 10px; }
+  /* Admin-Kopfzeile stapelt auf dem Handy: Titel oben, Navigation darunter, Abmelden rechts. */
+  .admin-topbar {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "title  logout"
+      "nav    nav";
+    gap: 10px 14px;
+    padding: 12px 16px;
+  }
+  .admin-title { grid-area: title; justify-self: start; text-align: left; font-size: 1.2rem; }
+  .adminnav-logout { grid-area: logout; }
+  .adminnav { grid-area: nav; justify-self: stretch; flex-wrap: wrap; gap: 10px 14px; }
   .admin-table { display: block; overflow-x: auto; white-space: nowrap; }
 }

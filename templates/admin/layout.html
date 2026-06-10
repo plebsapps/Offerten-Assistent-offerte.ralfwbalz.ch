@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <title>{% block title %}Admin – Offerten-Assistent{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=7">
+  <link rel="stylesheet" href="/static/css/style.css?v=8">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">Offerten-Assistent</div>
-    <div class="subbrand">Admin</div>
+  {% set p = request.url.path %}
+  <header class="admin-topbar">
     <nav class="adminnav">
-      <a href="/admin">Dashboard</a>
-      <a href="/admin/zugang">Zugang</a>
-      <a href="/admin/gespraeche">Gespräche</a>
-      <a href="/admin/offerten">Offerten</a>
-      <a href="/admin/einstellungen">Einstellungen</a>
+      <a href="/admin" class="{{ 'active' if p == '/admin' else '' }}">Dashboard</a>
+      <a href="/admin/zugang" class="{{ 'active' if p.startswith('/admin/zugang') else '' }}">Zugang</a>
+      <a href="/admin/gespraeche" class="{{ 'active' if p.startswith('/admin/gespraeche') else '' }}">Gespräche</a>
+      <a href="/admin/offerten" class="{{ 'active' if p.startswith('/admin/offerten') else '' }}">Offerten</a>
+      <a href="/admin/einstellungen" class="{{ 'active' if p.startswith('/admin/einstellungen') else '' }}">Einstellungen</a>
     </nav>
+    <div class="admin-title">Admin Offerten-Assistent</div>
     <a class="adminnav-logout" href="/admin/logout">Abmelden</a>
   </header>
 

@@ -53,7 +53,7 @@ async def login(request: Request, benutzer: str = Form(...), passwort: str = For
 @router.get("/admin/logout")
 async def logout(request: Request):
     auth.abmelden(request)
-    return _redirect("/admin/login")
+    return _redirect("/")  # zurück auf die öffentliche Startseite (offerte.ralfwbalz.ch)
 
 
 # ------------------------------------------------------------- Dashboard -----
