@@ -25,7 +25,7 @@ Chat-Protokoll mit. Alle nutzerseitigen Texte sind deutsch.
 
 ## Technologie
 
-FastAPI · Jinja2 · SQLite (WAL) · Anthropic Claude (`claude-opus-4-8`, Streaming,
+FastAPI · Jinja2 · SQLite (WAL) · Anthropic Claude (`claude-sonnet-4-6`, Streaming,
 adaptive Thinking) · OpenAI (Sprache: Whisper-STT + `gpt-4o-mini-tts`) · WeasyPrint (PDF) ·
 SMTP (STARTTLS) · Docker Compose. Eines von mehreren Geschwisterprojekten unter
 `/home/ralf`; Sprach-Ein-/Ausgabe ist von `bewerbung-ralfwbalz` übernommen.

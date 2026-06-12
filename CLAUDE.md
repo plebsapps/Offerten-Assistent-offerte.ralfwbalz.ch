@@ -73,7 +73,8 @@ Keine Tests/Linter konfiguriert.
 - **`agent.py`** – Dispatcher `stream_reply(..., wind_down=bool)`, der je nach
   `settings.ki_anbieter()` an die Claude- (`_stream_reply_claude`) oder OpenAI-Implementierung
   (`agent_openai.stream_reply`, lazy import) delegiert. Beide liefern dieselbe Event-Schnittstelle.
-  Claude-Pfad: `claude-opus-4-8`, adaptive thinking, streaming. Geteilt werden `SYSTEM_PROMPT`,
+  Claude-Pfad: `claude-sonnet-4-6`, adaptive thinking (`effort: medium`), streaming. Geteilt
+  werden `SYSTEM_PROMPT`,
   `WIND_DOWN_HINWEIS` und das Tool `offerte_erstellen` (structured), das am Ende die Offerten-
   Grundlage extrahiert. Der Tool-Aufruf rendert/versendet die Offerte direkt
   (`offer.create_and_send`); danach läuft die Streaming-Schleife (`MAX_TOOL_ROUNDS`) noch eine
@@ -96,10 +97,12 @@ Keine Tests/Linter konfiguriert.
 
 ### Zugangssteuerung & Kostenbremse
 - **Zugangsmodus** (`settings.zugangsmodus()`, im Admin umschaltbar): `oeffentlich` (wie bisher,
-  Default) oder `einladung`. Im Modus `einladung` braucht es einen gültigen Token-Link
-  `PUBLIC_BASE_URL/?z=<token>`; ein gültiger Token setzt `request.session["zugang_ok"]` und der
-  Chat ist freigeschaltet, sonst liefert `/` die `einladung.html` (403) und `/chat*` antworten
-  403. `zugangslinks` sind **bewusst mehrfach nutzbar** (eine `session_id` entsteht pro Reload neu)
+  Default) oder `einladung`. Im Modus `einladung` verlangt **jeder** Besuch von `GET /` einen gültigen
+  Token-Link `PUBLIC_BASE_URL/?z=<token>` (Ausnahme: `selbst_verifiziert`, s. u.); ein früher
+  gesetztes `zugang_ok` allein zeigt die Chat-Seite nicht mehr. Ein gültiger Token setzt
+  `request.session["zugang_ok"]`, das die Endpunkte `/chat*` eines bereits laufenden Gesprächs
+  freischaltet; ohne gültigen Zugang liefert `/` die `einladung.html` (403) und `/chat*`
+  antworten 403. `zugangslinks` sind **bewusst mehrfach nutzbar** (eine `session_id` entsteht pro Reload neu)
   und lassen sich deaktivieren bzw. zeitlich begrenzen (`gueltig_bis`). Optional speichert ein Link
   `empfaenger_email`, `anrede` (Frau/Herr/Firma) und `name` und kann direkt per E-Mail verschickt
   werden; die Link-URL baut sich aus `settings.basis_url()` (Produktions-Fallback → nie localhost
@@ -131,8 +134,10 @@ Keine Tests/Linter konfiguriert.
 ### Sprache
 Das LLM hat **keine** eigene Sprachfunktion. STT und TTS laufen serverseitig über die
 OpenAI-API (`voice.py`): der Browser nimmt Audio per `MediaRecorder` auf und schickt es an
-`/chat/stt` (Whisper, `gpt-4o-mini-transcribe`); die fertige Antwort wird über `/chat/tts`
-(`gpt-4o-mini-tts`, Stimme `nova`) als MP3 vorgelesen (`static/js/app.js`). Das funktioniert
+`/chat/stt` (Whisper, `gpt-4o-mini-transcribe`); die Antwort wird über `/chat/tts`
+(`gpt-4o-mini-tts`, Stimme `nova`) als MP3 vorgelesen – **satzweise während des Streams**
+(`static/js/app.js` schneidet Sätze aus dem Token-Strom, synthetisiert sie vorab und spielt
+sie als Queue in Reihenfolge ab). Das funktioniert
 in allen Browsern (auch Firefox/Safari). Ohne Mikrofon-/Aufnahmeunterstützung funktioniert
 die Texteingabe weiter; ein Banner weist darauf hin. Vorbild ist die Schwesterseite
 `bewerbung-ralfwbalz`.
@@ -149,7 +154,7 @@ es, wird neu gerendert).
 ### Chat-Stream
 `POST /chat` liefert Server-Sent Events. `agent.stream_reply` yieldet Events
 (`token`, `offer_created`, `done`, `error`, `limit`); `static/js/app.js` parst den Stream,
-zeigt das Transkript live und liest die fertige Antwort per TTS vor.
+zeigt das Transkript live und liest die Antwort satzweise per TTS vor (siehe „Sprache“).
 
 ## Deployment
 
