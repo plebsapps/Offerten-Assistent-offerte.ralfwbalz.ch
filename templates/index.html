@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <title>Offerten-Assistent – ralfwbalz.ch</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=9">
+  <link rel="stylesheet" href="/static/css/style.css?v=10">
   <link rel="icon" type="image/svg+xml" href="/static/img/logo-ralfwbalz.svg">
 </head>
-<body data-homepage="{{ homepage_url }}">
+<body data-homepage="{{ homepage_url }}" data-greeting="{{ begruessung }}">
   <div class="nav-wrap">
     <nav class="nav" id="nav">
       <a href="{{ homepage_url }}" class="nav-logo" aria-label="Zur Website von Ralf W. Balz">
@@ -61,6 +61,9 @@
         <input type="text" id="website" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
         <button type="submit" class="btn-send" title="Senden">Senden</button>
       </form>
+      <p id="micHint" class="mic-hint">
+        🎤 Mikrofon antippen und sprechen – wenn Sie fertig sind, das Mikrofon nochmals antippen.
+      </p>
       <div class="controls">
         <label class="toggle">
           <input type="checkbox" id="ttsToggle" checked> Antworten vorlesen

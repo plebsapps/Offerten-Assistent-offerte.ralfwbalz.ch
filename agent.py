@@ -26,8 +26,14 @@ WICHTIG – Sprache & Stil:
 - Antworte ausschliesslich auf Deutsch (Schweizer Höflichkeitsform „Sie“).
 - Deine Antworten werden dem Kunden VORGELESEN. Formuliere daher in natürlicher,
   gesprochener Sprache, kurz und klar. Keine Aufzählungszeichen, keine Markdown-Formatierung,
-  keine langen Monologe. Stelle möglichst nur EINE Frage pro Antwort.
-- Beginne das Gespräch, indem du dich kurz vorstellst und fragst, worum es beim Projekt geht.
+  keine langen Monologe.
+- Stelle pro Antwort IMMER nur EINE einzige Frage – niemals mehrere auf einmal, auch nicht
+  in einem Satz verschachtelt oder mit „und" verbunden. Der Kunde antwortet per Sprache und
+  kann sich nur eine Frage merken. Wenn mehrere Punkte offen sind, frage sie nacheinander in
+  den folgenden Antworten ab, immer nur den nächsten.
+- Das Gespräch wurde bereits mit einer Begrüssung eröffnet (Vorstellung und die Frage, worum
+  es geht). Wiederhole die Begrüssung NICHT und stell dich nicht erneut vor – geh direkt auf
+  die Antwort des Kunden ein.
 
 Das sollst du im Laufe des Gesprächs klären (nicht als Checkliste abfragen, sondern im
 Gespräch natürlich erheben):
@@ -49,6 +55,12 @@ Regeln:
   Offerte auf Basis dieses Gesprächs persönlich kalkuliert und sich danach meldet.
 - Frage so lange nach, bis du ein tragfähiges Bild des Projekts UND die Kontaktdaten
   (insbesondere eine E-Mail-Adresse) hast.
+- Sobald der Kunde eine grobe Projektidee geäussert hat (aber nicht vorher), biete ihm an,
+  selbst ein paar Ideen oder Vorschläge dazu beizutragen (z. B. „Möchten Sie, dass ich Ihnen
+  auch ein paar Ideen dazu vorschlage?"). Wenn er zustimmt, bring konkrete, fachliche
+  Anregungen ein – mögliche Lösungsansätze, sinnvolle Funktionen oder Dinge, die
+  erfahrungsgemäss zu bedenken sind. Bleibe dabei konkret und kurz und nenne weiterhin KEINE
+  Preise oder Aufwände. Drängst du dich nicht auf: lehnt der Kunde ab, fragst du einfach weiter.
 - Wenn alles Wesentliche geklärt ist, fasse das Projekt in ein, zwei Sätzen mündlich
   zusammen, frage einmal nach, ob alles korrekt ist, und rufe danach das Werkzeug
   „offerte_erstellen“ mit allen gesammelten Informationen auf.
@@ -148,15 +160,14 @@ def _kontakt_hinweis(kontakt: dict | None) -> str:
         z.append(f"- E-Mail-Adresse: {email} (dorthin wurde der Einladungslink gesendet)")
     if offer.ist_du_anrede(anrede):
         z.append(
-            "Sprich die Person ab deiner ersten Antwort persönlich mit ihrem Vornamen und "
-            "durchgehend in der Du-Form an (z. B. „Hallo Rainer“). Bleibe beim Du, kein „Sie“."
+            "Sprich die Person durchgehend persönlich mit ihrem Vornamen und in der Du-Form "
+            "an. Bleibe beim Du, kein „Sie“."
         )
     else:
         z.append(
-            "Sprich die Person ab deiner ersten Antwort persönlich, in der Sie-Form und mit "
-            "korrekter Anrede an (z. B. „Guten Tag, Frau Muster“ oder „Guten Tag, Herr Muster“). "
-            "Lautet die Anrede „Firma“, ist der Name ein Unternehmen – wähle dann eine passende, "
-            "höfliche Ansprache."
+            "Sprich die Person durchgehend persönlich, in der Sie-Form und mit korrekter "
+            "Anrede an (z. B. „Frau Muster“ oder „Herr Muster“). Lautet die Anrede „Firma“, "
+            "ist der Name ein Unternehmen – wähle dann eine passende, höfliche Ansprache."
         )
     if email:
         z.append(
@@ -168,6 +179,27 @@ def _kontakt_hinweis(kontakt: dict | None) -> str:
     else:
         z.append("Frage nicht erneut nach dem Namen – er ist bereits bekannt.")
     return "\n".join(z) + "\n"
+
+
+def begruessung(kontakt: dict | None = None) -> str:
+    """Feste Eröffnungs-Begrüssung des Assistenten (die erste, vorgelesene Zeile).
+
+    Sie ist bewusst deterministisch: serverseitig wird sie vorab synthetisiert
+    (`/begruessung.mp3`) und als erste Assistenten-Nachricht in die History gesetzt, damit
+    die Stimme beim Start ohne LLM-Latenz sofort einsetzt. Ist der Gesprächspartner über
+    einen Einladungslink bekannt (Anrede/Name), wird persönlich begrüsst."""
+    kontakt = kontakt or {}
+    anrede = (kontakt.get("anrede") or "").strip()
+    name = (kontakt.get("name") or "").strip()
+    vorstellung = "ich bin der digitale Offerten-Assistent von Ralf Balz"
+    if name and offer.ist_du_anrede(anrede):
+        return (f"Hallo {name}, {vorstellung}. Schön, dass du da bist. "
+                f"Erzähl mir doch: Worum geht es bei deinem geplanten IT-Projekt?")
+    if name and anrede in ("Herr", "Frau"):
+        return (f"Guten Tag {anrede} {name}, {vorstellung}. Schön, dass Sie da sind. "
+                f"Erzählen Sie mir: Worum geht es bei Ihrem geplanten IT-Projekt?")
+    return (f"Guten Tag, {vorstellung}. Schön, dass Sie da sind. "
+            f"Erzählen Sie mir: Worum geht es bei Ihrem geplanten IT-Projekt?")
 
 
 def build_system_prompt(wind_down: bool = False, kontakt: dict | None = None) -> str:
@@ -201,6 +233,15 @@ def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
     Yields: {"type": "token", "text": ...} | {"type": "offer_created"} |
             {"type": "done"} | {"type": "error", "message": ...}
     """
+    # Die vorab gesetzte Eröffnungs-Begrüssung steht als erste Assistenz-Nachricht in der
+    # History (fürs Transkript). Für die KI-API müssen die Nachrichten aber mit einer
+    # User-Rolle beginnen – führende Assistenz-Nachrichten daher überspringen. Dass die
+    # Begrüssung nicht wiederholt wird, steuert der System-Prompt.
+    i = 0
+    while i < len(history) and history[i].get("role") != "user":
+        i += 1
+    history = history[i:]
+
     if settings.ki_anbieter() == "openai":
         import agent_openai  # lazy: vermeidet Zirkelbezug beim Import
         yield from agent_openai.stream_reply(session_id, history, wind_down=wind_down, kontakt=kontakt)

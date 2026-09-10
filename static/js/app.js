@@ -23,9 +23,11 @@
     overlay: document.getElementById("abschlussOverlay"),
     overlayCount: document.getElementById("overlayCount"),
     overlayBtn: document.getElementById("overlayBtn"),
+    micHint: document.getElementById("micHint"),
   };
 
   const homepageUrl = document.body.dataset.homepage || "https://ralfwbalz.ch";
+  const begruessung = (document.body.dataset.greeting || "").trim();
   let offerCreated = false;
 
   // --- Spracheingabe (STT, serverseitig via OpenAI) ---
@@ -39,6 +41,7 @@
   if (!canRecord) {
     el.banner.classList.remove("hidden");
     el.micBtn.disabled = true;
+    if (el.micHint) el.micHint.classList.add("hidden");
   }
 
   async function startRecording() {
@@ -103,6 +106,22 @@
   let speakGen = 0;        // wird bei cancelSpeak erhöht → laufende/wartende Jobs verwerfen
   let ttsJobs = [];        // {gen, url: Promise<objectURL|null>} in Reihenfolge
   let ttsPumping = false;
+  let ttsIdleResolvers = [];  // warten auf „nichts mehr in Synthese/Wiedergabe"
+
+  // Promise, das auflöst, sobald die TTS-Pipeline leer ist (keine Jobs, kein laufendes
+  // Audio). Wird genutzt, um den Abschluss-Countdown erst nach der gesprochenen
+  // Verabschiedung zu starten.
+  function whenTTSIdle() {
+    if (!ttsPumping && ttsJobs.length === 0 && !currentAudio) return Promise.resolve();
+    return new Promise((res) => ttsIdleResolvers.push(res));
+  }
+
+  function resolveTTSIdle() {
+    if (ttsPumping || ttsJobs.length || currentAudio) return;
+    const rs = ttsIdleResolvers;
+    ttsIdleResolvers = [];
+    rs.forEach((r) => r());
+  }
 
   function ttsFetch(text, gen) {
     return fetch("/chat/tts", {
@@ -136,6 +155,7 @@
       }
     } finally {
       ttsPumping = false;
+      resolveTTSIdle();
     }
   }
 
@@ -162,6 +182,28 @@
       try { currentAudio.pause(); } catch (_) { /* egal */ }
       currentAudio = null;
     }
+    resolveTTSIdle();
+  }
+
+  // --- Eröffnungs-Begrüssung vorab synthetisieren ---
+  // Die erste vorgelesene Zeile ist serverseitig fix (/begruessung.mp3). Wir holen das MP3
+  // schon beim Laden, damit die Stimme beim Start ohne LLM-Latenz sofort einsetzt.
+  let greetingAudioUrl = null;
+  function prefetchGreeting() {
+    if (!begruessung || greetingAudioUrl || !el.ttsToggle.checked) return;
+    fetch("/begruessung.mp3")
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((b) => { if (b) greetingAudioUrl = URL.createObjectURL(b); })
+      .catch(() => { /* ohne Vorab-Audio wird beim Start nachgeladen */ });
+  }
+
+  function playGreeting() {
+    if (!begruessung || !el.ttsToggle.checked) return;
+    if (greetingAudioUrl) { playUrl(greetingAudioUrl, speakGen); return; }
+    fetch("/begruessung.mp3")
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((b) => { if (b) playUrl(URL.createObjectURL(b), speakGen); })
+      .catch(() => { /* kein Audio – Text steht trotzdem */ });
   }
 
   // Zerlegt den Puffer in vollständige Sätze (Satzende + folgendes Leerzeichen) und gibt
@@ -270,19 +312,37 @@
       // Restlichen Satz (ohne abschliessendes Satzzeichen) noch vorlesen.
       if (wantTTS && ttsBuf.trim()) enqueueSpeak(ttsBuf.trim());
       ttsBuf = "";
-      if (offerCreated) showAbschluss();
+      if (offerCreated) {
+        // Erst zur Homepage-Weiterleitung übergehen, wenn die Verabschiedung fertig
+        // gesprochen ist. Ohne TTS löst whenTTSIdle() sofort auf.
+        whenTTSIdle().then(startCountdown);
+      }
     }
   }
 
-  // Nach erstellter Offerte: Abschluss-Overlay mit Countdown-Weiterleitung zeigen.
-  function showAbschluss() {
-    if (!el.overlay || !el.overlay.classList.contains("hidden")) return;
+  // Nach erstellter Offerte: Abschluss-Overlay sofort einblenden (Homepage-Link sichtbar).
+  // Der automatische Countdown wird erst über startCountdown() gestartet – nach der
+  // gesprochenen Verabschiedung.
+  let overlayGezeigt = false;
+  function showOverlay() {
+    if (!el.overlay || overlayGezeigt) return;
+    overlayGezeigt = true;
     el.overlayBtn.href = homepageUrl;
     el.overlayBtn.addEventListener("click", (e) => {
       e.preventDefault();
       window.location.href = homepageUrl;
     });
     el.overlay.classList.remove("hidden");
+    el.overlayCount.textContent = 8;
+  }
+
+  // Countdown-Weiterleitung starten (idempotent): erst aufrufen, wenn die Sprachausgabe
+  // fertig ist, damit die Verabschiedung nicht abgeschnitten wird.
+  let countdownGestartet = false;
+  function startCountdown() {
+    if (countdownGestartet) return;
+    countdownGestartet = true;
+    showOverlay();
     let rest = 8;
     el.overlayCount.textContent = rest;
     const timer = setInterval(() => {
@@ -305,9 +365,9 @@
     } else if (ev.type === "offer_created") {
       offerCreated = true;
       el.statusHint.textContent = "✓ Offerte erstellt und an Ralf gesendet.";
-      // Overlay mit Homepage-Link sofort zeigen – nicht erst nach der gesprochenen
-      // Verabschiedung am Stream-Ende.
-      showAbschluss();
+      // Overlay mit Homepage-Link sofort zeigen; der Countdown startet erst nach der
+      // gesprochenen Verabschiedung (siehe finally in sendMessage).
+      showOverlay();
     } else if (ev.type === "limit") {
       assistant.textContent = ev.text;
     } else if (ev.type === "error") {
@@ -320,9 +380,16 @@
   el.startBtn.addEventListener("click", () => {
     el.intro.classList.add("hidden");
     el.chat.classList.remove("hidden");
-    sendMessage("Guten Tag, ich möchte ein IT-Projekt mit Ihnen besprechen.");
+    // Feste Begrüssung sofort zeigen und (vorsynthetisiert) vorlesen. Der Kunde antwortet
+    // danach – erst seine Antwort startet das eigentliche Gespräch.
+    if (begruessung) {
+      addBubble("assistant", begruessung);
+      playGreeting();
+    }
     el.textInput.focus();
   });
+
+  prefetchGreeting();
 
   el.composer.addEventListener("submit", (e) => {
     e.preventDefault();

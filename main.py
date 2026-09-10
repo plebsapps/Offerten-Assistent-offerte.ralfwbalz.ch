@@ -122,8 +122,11 @@ async def index(request: Request):
                 {"request": request, "selbst_zugang": settings.selbst_zugang_aktiv()},
                 status_code=403,
             )
+    kontakt = request.session.get("kontakt") or {}
     return templates.TemplateResponse(
-        "index.html", {"request": request, "homepage_url": HOMEPAGE_URL}
+        "index.html",
+        {"request": request, "homepage_url": HOMEPAGE_URL,
+         "begruessung": agent.begruessung(kontakt)},
     )
 
 
@@ -263,6 +266,10 @@ async def chat(request: Request):
                 status_code=429,
             )
         db.create_session(session_id, ip)
+        # Die feste Eröffnungs-Begrüssung (clientseitig bereits angezeigt und vorgelesen) als
+        # erste Assistenten-Nachricht ablegen, damit der Agent sie nicht wiederholt und nahtlos
+        # an die Antwort des Kunden anschliesst.
+        db.add_message(session_id, "assistant", agent.begruessung(request.session.get("kontakt") or {}))
 
     # Kombinierte Kostenbremse: Turns ODER Token. Was zuerst die Hard-Schwelle erreicht,
     # beendet das Gespräch; die Soft-Schwelle lässt den Agenten sanft zum Abschluss überleiten.
@@ -360,6 +367,31 @@ async def chat_tts(request: Request):
         logger.error("TTS fehlgeschlagen: %s", e)
         return JSONResponse({"error": "tts"}, status_code=502)
     return Response(content=audio, media_type="audio/mpeg")
+
+
+_begruessung_audio_cache: dict[str, bytes] = {}
+
+
+@app.get("/begruessung.mp3")
+async def begruessung_audio(request: Request):
+    """Vorab-Synthese der festen Eröffnungs-Begrüssung, damit die Stimme beim Gesprächsstart
+    ohne LLM-Latenz sofort einsetzt. Wie /chat/tts an den Zugang gebunden; das Ergebnis wird je
+    Begrüssungstext gecacht, sodass wiederholte Aufrufe keine zusätzlichen TTS-Kosten erzeugen."""
+    if not _zugang_erlaubt(request):
+        return JSONResponse({"error": "zugang"}, status_code=403)
+    kontakt = request.session.get("kontakt") or {}
+    text = agent.begruessung(kontakt)
+    audio = _begruessung_audio_cache.get(text)
+    if audio is None:
+        try:
+            audio = voice.synthesize(text)
+        except Exception as e:  # noqa: BLE001
+            logger.error("Begrüssungs-TTS fehlgeschlagen: %s", e)
+            return JSONResponse({"error": "tts"}, status_code=502)
+        if len(_begruessung_audio_cache) < 50:
+            _begruessung_audio_cache[text] = audio
+    return Response(content=audio, media_type="audio/mpeg",
+                    headers={"Cache-Control": "no-store"})
 
 
 def _single_event(ev: dict):

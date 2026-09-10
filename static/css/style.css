@@ -25,6 +25,11 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
+  /* Spalten-Layout, damit der Footer auch bei kurzem Inhalt unten sitzt
+     statt in der Seitenmitte zu hängen. */
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ----------------------------------------------------------- Navigation ---------- */
@@ -130,12 +135,16 @@ body {
 /* ----------------------------------------------------------- Footer -------------- */
 .footer {
   background: var(--navy-dark);
-  padding: 32px 24px;
+  padding: 32px 0;
   text-align: center;
+  flex-shrink: 0;
 }
 .footer-inner {
-  max-width: 1100px;
+  /* Gleiche Breite und Seitenränder wie .wrap, damit Logo und Links bündig
+     unter dem Seiteninhalt stehen. */
+  max-width: 760px;
   margin: 0 auto;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -171,9 +180,14 @@ body {
 .footer-links a:hover { color: #93C5FD; }
 
 .wrap {
+  width: 100%;
   max-width: 760px;
   margin: 0 auto;
   padding: 24px 16px 40px;
+  flex: 1 0 auto;
+  /* Zentrierung doppelt abgesichert: auto-Ränder UND align-self, damit sie nicht
+     davon abhängt, wie eine Engine auto-Ränder in Flex-Containern auslegt. */
+  align-self: center;
 }
 
 .hidden { display: none !important; }
@@ -319,6 +333,13 @@ body {
 }
 .toggle { cursor: pointer; }
 .hint { color: #16a34a; }
+.mic-hint {
+  margin: 0;
+  padding: 2px 14px 10px;
+  font-size: .82rem;
+  color: var(--muted);
+  text-align: center;
+}
 
 .legal {
   text-align: center;
@@ -582,8 +603,8 @@ body {
   }
   .nav-logo-canvas { width: 76px; height: 76px; }
 
-  .footer { padding: 24px 16px; }
-  .footer-inner { flex-direction: column; text-align: center; }
+  .footer { padding: 24px 0; }
+  .footer-inner { flex-direction: column; text-align: center; padding: 0 12px; }
   .footer-copy { text-align: center; }
 
   .wrap {
