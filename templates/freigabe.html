@@ -5,19 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
   <title>Offerte-Freigabe – ralfwbalz.ch</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=8">
+  <link rel="stylesheet" href="/static/css/style.css?v=9">
+  <link rel="icon" type="image/svg+xml" href="/static/img/logo-ralfwbalz.svg">
 </head>
 <body>
-  <header class="topbar">
-    <a href="https://www.ralfwbalz.ch" class="topbar-logo" aria-label="Ralf W. Balz – zur Startseite">
-      <canvas id="navLogo" width="400" height="400" class="topbar-logo-canvas" aria-label="Logo Ralf W. Balz"></canvas>
-    </a>
-    <div class="topbar-center">
-      <div class="brand">Offerten-Assistent</div>
-      <div class="powered">Powered by <a href="https://www.ralfwbalz.ch">www.ralfwbalz.ch</a></div>
+  <div class="nav-wrap">
+    <nav class="nav" id="nav">
+      <a href="/" class="nav-logo" aria-label="Offerten-Assistent – Startseite">
+        <canvas id="navLogo" width="400" height="400" class="nav-logo-canvas" aria-label="Logo Ralf W. Balz"></canvas>
+      </a>
+      <ul class="nav-links">
+        <li><a href="https://www.ralfwbalz.ch/#leistungen">Leistungen</a></li>
+        <li><a href="https://www.ralfwbalz.ch/#ueber-mich">Über mich</a></li>
+        <li><a href="https://www.ralfwbalz.ch/#referenzen">Referenzen</a></li>
+        <li><a href="https://www.ralfwbalz.ch/#buch">Bücher</a></li>
+        <li><a href="/" aria-current="page">Offerte</a></li>
+        <li><a href="https://www.ralfwbalz.ch/#kontakt" class="nav-cta">Kontakt</a></li>
+      </ul>
+      <button class="nav-hamburger" id="hamburger" aria-label="Menü öffnen">
+        <span></span><span></span><span></span>
+      </button>
+    </nav>
+    <div class="nav-mobile" id="navMobile">
+      <a href="https://www.ralfwbalz.ch/#leistungen">Leistungen</a>
+      <a href="https://www.ralfwbalz.ch/#ueber-mich">Über mich</a>
+      <a href="https://www.ralfwbalz.ch/#referenzen">Referenzen</a>
+      <a href="https://www.ralfwbalz.ch/#buch">Bücher</a>
+      <a href="/" aria-current="page">Offerte</a>
+      <a href="https://www.ralfwbalz.ch/#kontakt">Kontakt</a>
     </div>
-    <span class="topbar-spacer" aria-hidden="true"></span>
-  </header>
+  </div>
   <main class="wrap">
     <div class="chat" style="padding:28px">
       {% if status == "gesendet" %}
@@ -38,6 +55,18 @@
       {% endif %}
     </div>
   </main>
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="/static/img/logo-ralfwbalz.svg" alt="Logo Ralf W. Balz" class="footer-logo">
+        <p class="footer-copy">&copy; 2026 Ralf W. Balz – IT Beratung, Datenbanken, Webanwendungen und Mobile Apps für KMU</p>
+      </div>
+      <nav class="footer-links">
+        <a href="/impressum">Datenschutz &amp; Impressum</a>
+        <a href="/admin/login">Login</a>
+      </nav>
+    </div>
+  </footer>
   <script src="/static/js/logo.js"></script>
 </body>
 </html>

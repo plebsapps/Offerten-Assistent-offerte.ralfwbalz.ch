@@ -5,6 +5,17 @@
   --card: #ffffff;
   --text: #1f2937;
   --muted: #64748b;
+  /* Ergänzt für Navigation und Footer im Stil von ralfwbalz.ch */
+  --navy-dark:  #111E35;
+  --blue-hover: #2563EB;
+  --white:      #FFFFFF;
+  --gray-100:   #F1F5F9;
+  --gray-600:   #475569;
+  --gray-800:   #1E293B;
+  --radius:     8px;
+  --shadow:     0 4px 24px rgba(0,0,0,.10);
+  --shadow-sm:  0 2px 8px rgba(0,0,0,.07);
+  --transition: .25s ease;
 }
 
 * { box-sizing: border-box; }
@@ -16,30 +27,148 @@ body {
   color: var(--text);
 }
 
-.topbar {
-  background: var(--navy);
-  color: #fff;
-  height: 132px;            /* gleiche Höhe wie die Kopfzeile auf ralfwbalz.ch */
+/* ----------------------------------------------------------- Navigation ---------- */
+/* Übernommen von ralfwbalz.ch, weisse Variante wie auf den dortigen Unterseiten.
+   Bewusst NICHT position:fixed – die Chat-Seite rechnet mit der vollen Höhe. */
+.nav {
+  position: relative;
+  z-index: 100;
   padding: 0 24px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  height: 132px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+  display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
 }
-.topbar-logo { display: flex; align-items: center; justify-self: start; }
-.topbar-logo-canvas { width: 120px; height: 120px; display: block; }
-.topbar-center { text-align: center; }
-.topbar-center .brand { font-weight: 700; font-size: 1.4rem; line-height: 1.2; }
-.topbar-center .powered { color: #93c5fd; font-size: .85rem; margin-top: 2px; }
-.topbar-center .powered a { color: #93c5fd; text-decoration: none; }
-.topbar-center .powered a:hover { text-decoration: underline; }
-.topbar-login {
-  justify-self: end;
-  color: #fff;
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--navy);
   text-decoration: none;
-  font-size: .9rem;
 }
-.topbar-login:hover { text-decoration: underline; }
+.nav-logo-canvas {
+  width: 120px;
+  height: 120px;
+  display: block;
+  flex-shrink: 0;
+}
+.nav-links {
+  display: flex;
+  gap: 32px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.nav-links a {
+  font-size: .9rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.nav-links a:hover { color: var(--blue); }
+.nav-links a[aria-current="page"] {
+  color: var(--navy);
+  font-weight: 700;
+}
+.nav-cta {
+  padding: 9px 20px;
+  border-radius: var(--radius);
+  background: var(--blue);
+  color: var(--white) !important;
+  font-weight: 600;
+  font-size: .88rem;
+  transition: background var(--transition) !important;
+}
+.nav-cta:hover { background: var(--blue-hover) !important; color: var(--white) !important; }
+.nav-hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 4px;
+}
+.nav-hamburger span {
+  display: block;
+  width: 24px; height: 2px;
+  background: var(--navy);
+  border-radius: 2px;
+  transition: all var(--transition);
+}
+/* Mobile Schublade – absolut unter der Leiste, weil die Nav im Fluss steht. */
+.nav-mobile {
+  display: none;
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  background: var(--white);
+  box-shadow: var(--shadow);
+  z-index: 99;
+  padding: 20px 24px;
+  flex-direction: column;
+  gap: 4px;
+}
+.nav-mobile.open { display: flex; }
+.nav-mobile a {
+  display: block;
+  padding: 12px 0;
+  font-weight: 500;
+  color: var(--gray-800);
+  text-decoration: none;
+  border-bottom: 1px solid var(--gray-100);
+}
+.nav-mobile a:last-child { border-bottom: none; }
+.nav-mobile a:hover { color: var(--blue); }
+/* Wrapper, damit die Schublade an der Leiste hängt. */
+.nav-wrap { position: relative; }
+
+/* ----------------------------------------------------------- Footer -------------- */
+.footer {
+  background: var(--navy-dark);
+  padding: 32px 24px;
+  text-align: center;
+}
+.footer-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.footer-logo {
+  width: 30px;
+  height: 30px;
+  opacity: .6;
+  flex-shrink: 0;
+}
+.footer-copy {
+  color: rgba(255,255,255,.4);
+  font-size: .85rem;
+  margin: 0;
+  text-align: left;
+}
+.footer-links { display: flex; gap: 24px; }
+.footer-links a {
+  color: var(--white);
+  font-size: .9rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color var(--transition);
+}
+.footer-links a:hover { color: #93C5FD; }
 
 .wrap {
   max-width: 760px;
@@ -438,16 +567,24 @@ body {
   padding-top: 14px;
 }
 
+/* ----------------------------------------------------------- Tablet -------------- */
+@media (max-width: 900px) {
+  .nav { height: 120px; }
+  .nav-links { display: none; }
+  .nav-hamburger { display: flex; }
+}
+
 /* ----------------------------------------------------------- Mobil/Smartphone ---- */
 @media (max-width: 600px) {
-  .topbar {
+  .nav {
     height: 92px;
     padding: 0 14px;
-    gap: 8px;
   }
-  .topbar-logo-canvas { width: 76px; height: 76px; }
-  .topbar-center .brand { font-size: 1.1rem; }
-  .topbar-center .powered { font-size: .72rem; }
+  .nav-logo-canvas { width: 76px; height: 76px; }
+
+  .footer { padding: 24px 16px; }
+  .footer-inner { flex-direction: column; text-align: center; }
+  .footer-copy { text-align: center; }
 
   .wrap {
     padding: 16px 12px 28px;

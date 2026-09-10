@@ -49,3 +49,15 @@
   }
   draw();
 })();
+
+// Mobile Navigation (wie auf ralfwbalz.ch): Hamburger klappt die Schublade auf,
+// ein Klick auf einen Link schliesst sie wieder.
+(function () {
+  const navMobile = document.getElementById('navMobile');
+  const hamburger = document.getElementById('hamburger');
+  if (!navMobile || !hamburger) return;
+  hamburger.addEventListener('click', () => navMobile.classList.toggle('open'));
+  navMobile.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => navMobile.classList.remove('open'));
+  });
+})();

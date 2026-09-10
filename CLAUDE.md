@@ -151,6 +151,23 @@ automatischen Versand an den Kunden nicht ohne Rücksprache aktivieren. Das PDF 
 `DATA_DIR/offers/offerte-{session_id}.pdf` und wird bei der Freigabe wiederverwendet (fehlt
 es, wird neu gerendert).
 
+### Kopfzeile, Navigation & Footer
+Die vier Besucherseiten (`index.html`, `einladung.html`, `impressum.html`, `freigabe.html`)
+tragen die **gleiche Navigation wie ralfwbalz.ch**: weisse Leiste, animiertes Canvas-Logo
+(`static/js/logo.js`, `#navLogo`), Links auf `https://www.ralfwbalz.ch/#…` plus „Offerte"
+(`aria-current="page"`) und „Kontakt" als blauer CTA, dazu Hamburger und `.nav-mobile`-
+Schublade (Toggle ebenfalls in `logo.js`). Anders als auf der Hauptseite steht die Leiste
+**im Fluss statt `position: fixed`** – die Chat-Seite rechnet mit `.messages { height: 56dvh }`
+und einer klebenden `.composer`. Darunter liegt ein Footer im Stil der Hauptseite mit
+„Datenschutz & Impressum" und dem **Login** in den Admin-Bereich; in der Kopfzeile gibt es
+keinen Login mehr. Das Markup ist wie bisher je Seite dupliziert (kein `extends` auf der
+öffentlichen Seite), eine CSS-Version (`?v=…`) also in **sechs** Templates zu erhöhen.
+
+Der Admin-Bereich behält seine eigene `.admin-topbar` (`admin/layout.html`); `admin/login.html`
+nutzt sie neu ebenfalls (vorher eine kaputte `.topbar`-Variante mit undefinierter `.subbrand`).
+`static/img/logo-ralfwbalz.svg` ist aus dem Hauptprojekt kopiert und dient als Footer-Logo
+und Favicon.
+
 ### Chat-Stream
 `POST /chat` liefert Server-Sent Events. `agent.stream_reply` yieldet Events
 (`token`, `offer_created`, `done`, `error`, `limit`); `static/js/app.js` parst den Stream,
