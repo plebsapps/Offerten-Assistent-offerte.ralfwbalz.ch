@@ -45,6 +45,10 @@ app.include_router(routes_admin.router)
 MAX_SESSIONS_PER_IP = int(os.environ.get("MAX_SESSIONS_PER_IP", "5"))
 RATE_WINDOW_SECONDS = 3600  # 1 Stunde
 HOMEPAGE_URL = os.environ.get("HOMEPAGE_URL", "https://ralfwbalz.ch")
+# Das Logo in der Kopfzeile zeigt auf die Hauptseite. Als Jinja-Global steht der
+# Wert allen Templates zur Verfügung, auch impressum/einladung/freigabe, die
+# sonst keinen eigenen Kontext dafür bekämen.
+templates.env.globals["homepage_url"] = HOMEPAGE_URL
 
 # Self-Service-Zugang (E-Mail-Code/OTP)
 OTP_TTL_MIN = int(os.environ.get("OTP_TTL_MIN", "10"))          # Gültigkeit des Codes
