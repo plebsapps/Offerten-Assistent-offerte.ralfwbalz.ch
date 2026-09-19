@@ -9,6 +9,13 @@ server {
     listen [::]:80;
     server_name offerte.ralfwbalz.ch;
 
+    # Eigenes Zugriffsprotokoll statt des gemeinsamen /var/log/nginx/access.log:
+    # dort schreiben alle vhosts hinein und das Format führt kein $host-Feld, die
+    # Domain wäre also nur über Heuristik zu trennen. Aus dieser Datei trägt
+    # ralfwbalz/werkzeuge/offerte_import.sh die Besuche stündlich in die
+    # Besucherstatistik unter ralfwbalz.ch/statistik nach.
+    access_log /var/log/nginx/offerte.access.log;
+
     location / {
         proxy_pass http://127.0.0.1:8003;
         proxy_set_header Host $host;

@@ -180,3 +180,10 @@ Docker-Compose-Service `web` (Image/Container `offerte`), bindet nur `127.0.0.1:
 Volume `./data:/data`. nginx auf dem Host terminiert Let's-Encrypt-TLS und proxyt weiter
 (`setup/offerte.ralfwbalz.ch`; SSE: `proxy_buffering off`). Voraussetzung: DNS-A-Record
 `offerte.ralfwbalz.ch`. Eigenes Git-Repo → GitHub `plebsapps/offerte` (privat).
+
+Der vhost schreibt sein Zugriffsprotokoll bewusst nach `/var/log/nginx/offerte.access.log`
+statt in das gemeinsame `access.log` aller vhosts: aus dieser Datei trägt das
+Nachbarprojekt (`~/ralfwbalz/werkzeuge/offerte_import.sh`) die Besuche stündlich in die
+Besucherstatistik unter ralfwbalz.ch/statistik nach. Diese App selbst bleibt davon
+unberührt – sie erfasst nichts und kennt jenes Projekt nicht. Wird die `access_log`-Zeile
+entfernt, bleibt die Statistik dort still stehen.
