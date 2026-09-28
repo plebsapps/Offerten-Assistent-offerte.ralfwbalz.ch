@@ -159,7 +159,7 @@ es, wird neu gerendert).
 Die vier Besucherseiten (`index.html`, `einladung.html`, `impressum.html`, `freigabe.html`)
 tragen die **gleiche Navigation wie ralfwbalz.ch**: weisse Leiste, animiertes Canvas-Logo
 (`static/js/logo.js`, `#navLogo`), „Home" (`{{ homepage_url }}`, wie das Logo), Links auf
-`https://www.ralfwbalz.ch/#…` plus „Offerte"
+`https://ralfwbalz.ch/#…` plus „Offerte"
 (`aria-current="page"`) und „Kontakt" als blauer CTA, dazu Hamburger und `.nav-mobile`-
 Schublade (Toggle ebenfalls in `logo.js`). Anders als auf der Hauptseite steht die Leiste
 **im Fluss statt `position: fixed`** – die Chat-Seite rechnet mit `.messages { height: 56dvh }`
@@ -167,6 +167,12 @@ und einer klebenden `.composer`. Darunter liegt ein Footer im Stil der Hauptseit
 „Datenschutz & Impressum" und dem **Login** in den Admin-Bereich; in der Kopfzeile gibt es
 keinen Login mehr. Das Markup ist wie bisher je Seite dupliziert (kein `extends` auf der
 öffentlichen Seite), eine CSS-Version (`?v=…`) also in **sechs** Templates zu erhöhen.
+
+Alle Links auf die Hauptseite zeigen auf die **nackte** Domain, nicht auf `www.` – dort
+leitet nginx seit dem 28.09.2026 mit 301 um, und kanonisch ist `ralfwbalz.ch` (so stehen es
+deren sitemap.xml, robots.txt und canonical-Tags). Nicht auf `www.` zurückstellen: das wäre
+auf jedem Klick ein unnötiger Umweg. `HOMEPAGE_URL` (Default und `.env`) zeigt ebenfalls
+dorthin.
 
 ### Favicon
 `static/img/favicon.ico` (16/32/48), `favicon.svg` und `apple-touch-icon.png` (180 px, Grund
