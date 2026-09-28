@@ -90,6 +90,14 @@ HOMEPAGE_URL = os.environ.get("HOMEPAGE_URL", "https://ralfwbalz.ch")
 # sonst keinen eigenen Kontext dafür bekämen.
 templates.env.globals["homepage_url"] = HOMEPAGE_URL
 
+# Google Ads: das Tag steht in templates/_google_tag.html und lädt erst nach
+# der Zustimmung im Banner (static/js/einwilligung.js). GOOGLE_ADS_KONVERSION ist
+# das vollständige send_to der Conversion-Aktion "Offerte angefordert"
+# (AW-…/Label); leer = das Tag läuft, meldet aber keine Conversion.
+GOOGLE_ADS_ID = "AW-18481174898"
+templates.env.globals["google_ads_id"] = GOOGLE_ADS_ID
+templates.env.globals["google_ads_konversion"] = os.environ.get("GOOGLE_ADS_KONVERSION", "").strip()
+
 # Self-Service-Zugang (E-Mail-Code/OTP)
 OTP_TTL_MIN = int(os.environ.get("OTP_TTL_MIN", "10"))          # Gültigkeit des Codes
 OTP_MAX_VERSUCHE = int(os.environ.get("OTP_MAX_VERSUCHE", "3"))  # Eingabeversuche je Code

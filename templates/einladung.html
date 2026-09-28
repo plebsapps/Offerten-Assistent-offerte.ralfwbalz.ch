@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+{% include "_google_tag.html" %}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{% if selbst_zugang %}Zugang zum Offerten-Assistenten{% else %}Zugang nur per Einladung{% endif %} – Offerten-Assistent</title>
@@ -22,7 +23,7 @@
   <meta name="twitter:description" content="Offerten im Gespräch erstellen: Anliegen per Sprache oder Text schildern, fertige Offerte als PDF erhalten.">
   <meta name="twitter:image"       content="https://offerte.ralfwbalz.ch/static/img/logo-ralfwbalz.svg">
 
-  <link rel="stylesheet" href="/static/css/style.css?v=13">
+  <link rel="stylesheet" href="/static/css/style.css?v=14">
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -188,6 +189,7 @@
     });
   </script>
   {% endif %}
+  <script src="/static/js/einwilligung.js"></script>
   <script src="/static/js/logo.js"></script>
 </body>
 </html>

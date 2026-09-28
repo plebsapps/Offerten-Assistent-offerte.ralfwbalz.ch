@@ -664,3 +664,43 @@ body {
   .adminnav { grid-area: nav; justify-self: stretch; flex-wrap: wrap; gap: 10px 14px; }
   .admin-table { display: block; overflow-x: auto; white-space: nowrap; }
 }
+
+/* ─── Einwilligung Google Ads (Banner aus einwilligung.js) ─ */
+.einwilligung {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px 24px;
+  padding: 16px 20px;
+  background: var(--white);
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-size: .9rem;
+  color: var(--gray-800);
+}
+.einwilligung p { margin: 0; }
+.einwilligung a { color: var(--blue); text-decoration: underline; }
+.einwilligung-knoepfe { display: flex; gap: 10px; flex-shrink: 0; }
+.einwilligung-knopf {
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--blue);
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.einwilligung-knopf:hover { background: var(--blue); color: var(--white); }
+@media (max-width: 600px) {
+  .einwilligung { flex-direction: column; align-items: stretch; }
+  .einwilligung-knoepfe > * { flex: 1; }
+}

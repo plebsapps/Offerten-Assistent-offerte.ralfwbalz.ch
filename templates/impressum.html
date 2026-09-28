@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+{% include "_google_tag.html" %}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://offerte.ralfwbalz.ch/impressum">
   <title>Datenschutz &amp; Impressum – Offerten-Assistent</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=13">
+  <link rel="stylesheet" href="/static/css/style.css?v=14">
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -63,6 +64,33 @@
         zur Bearbeitung Ihrer Projektanfrage verwendet.
       </p>
 
+      <h2 style="color:#1B2A4A;font-size:1.1rem">Cookies</h2>
+      <p>
+        Ohne Ihre Einwilligung setzt diese Website keine Tracking- oder Werbe-Cookies.
+        Technisch notwendig sind ein Sitzungs-Cookie für den Zugang zum Assistenten und die
+        Speicherung Ihrer Wahl im Einwilligungs-Banner im lokalen Speicher Ihres Browsers.
+      </p>
+
+      <h2 id="google-ads" style="color:#1B2A4A;font-size:1.1rem">Google Ads (Conversion-Tracking)</h2>
+      <p>
+        Dieser Assistent wird mit Anzeigen bei Google beworben. Um zu erkennen, ob eine Anzeige
+        zu einer Offerte geführt hat, kann er das Google-Tag (gtag.js) von Google Ads laden.
+        Anbieter ist Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland;
+        Daten können auch an Google LLC in den USA übermittelt werden.
+      </p>
+      <ul>
+        <li>Das Google-Tag wird <strong>erst nach Ihrer Zustimmung</strong> im Banner geladen. Lehnen Sie ab, wird keine Verbindung zu Google aufgebaut.</li>
+        <li>Nach der Zustimmung setzt Google Cookies (z.&nbsp;B. <code>_gcl_au</code>) und erhält unter anderem Ihre IP-Adresse, Browserdaten, die besuchte Seite und die Information, dass eine Offerte erstellt wurde. Gesprächsinhalt und Kontaktdaten werden nicht an Google übermittelt.</li>
+        <li>Zweck: Messung des Erfolgs von Werbeanzeigen</li>
+        <li>Rechtsgrundlage: Ihre Einwilligung (Art. 6 Abs. 1 lit. a DSGVO)</li>
+        <li>Speicherdauer: Die Cookies von Google laufen nach höchstens 90 Tagen ab.</li>
+        <li>Widerruf: jederzeit über den Link <em>Cookie-Einstellungen</em> in der Fusszeile.</li>
+      </ul>
+      <p>
+        Weitere Informationen:
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#3B82F6">Datenschutzerklärung von Google</a>
+      </p>
+
       <h2 style="color:#1B2A4A;font-size:1.1rem">Kontakt &amp; Löschung</h2>
       <p>
         Für Auskunft oder Löschung Ihrer Daten wenden Sie sich bitte an Ralf&nbsp;W.&nbsp;Balz
@@ -85,6 +113,7 @@
       </nav>
     </div>
   </footer>
+  <script src="/static/js/einwilligung.js"></script>
   <script src="/static/js/logo.js"></script>
 </body>
 </html>

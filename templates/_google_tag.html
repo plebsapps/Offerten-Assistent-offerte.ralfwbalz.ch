@@ -1,0 +1,26 @@
+  <!-- Google tag (gtag.js), Consent Mode im Basis-Modus: gtag.js wird erst
+       nach der Zustimmung im Banner geladen, vorher geht nichts an Google.
+       Die Wahl liegt in localStorage (werbe_einwilligung = ja|nein), das
+       Banner selbst baut static/js/einwilligung.js. -->
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    window.googleAds = { id: {{ google_ads_id|tojson }}, konversion: {{ google_ads_konversion|tojson }} };
+    window.googleAdsLaden = function () {
+      if (window.googleAds.geladen) return;
+      window.googleAds.geladen = true;
+      gtag('consent', 'default', {
+        ad_storage: 'granted', ad_user_data: 'granted',
+        ad_personalization: 'granted', analytics_storage: 'denied'
+      });
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://www.googletagmanager.com/gtag/js?id=' + window.googleAds.id;
+      document.head.appendChild(s);
+      gtag('js', new Date());
+      gtag('config', window.googleAds.id);
+    };
+    try {
+      if (localStorage.getItem('werbe_einwilligung') === 'ja') window.googleAdsLaden();
+    } catch (e) { /* ohne localStorage: keine Einwilligung */ }
+  </script>

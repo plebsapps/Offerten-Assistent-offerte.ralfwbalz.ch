@@ -365,6 +365,7 @@
     } else if (ev.type === "offer_created") {
       offerCreated = true;
       el.statusHint.textContent = "✓ Offerte erstellt und an Ralf gesendet.";
+      if (window.googleAdsKonversion) window.googleAdsKonversion();
       // Overlay mit Homepage-Link sofort zeigen; der Countdown startet erst nach der
       // gesprochenen Verabschiedung (siehe finally in sendMessage).
       showOverlay();

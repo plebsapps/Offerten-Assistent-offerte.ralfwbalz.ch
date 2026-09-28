@@ -46,6 +46,7 @@ Keine Tests/Linter konfiguriert.
   (Default 3), `OTP_RESEND_SEKUNDEN` (Default 60), `MAX_ZUGANG_CODES_PER_IP` (Default 5,
   gleitendes 1-Stunden-Fenster pro IP). Nur wirksam im Einladungsmodus und wenn im Admin
   eingeschaltet (Setting `selbst_zugang`, gelesen über `settings.selbst_zugang_aktiv()`).
+- Google Ads: optional `GOOGLE_ADS_KONVERSION` – siehe *Google-Ads-Tag* weiter unten.
 
 ## Architektur
 
@@ -173,6 +174,26 @@ leitet nginx seit dem 28.09.2026 mit 301 um, und kanonisch ist `ralfwbalz.ch` (s
 deren sitemap.xml, robots.txt und canonical-Tags). Nicht auf `www.` zurückstellen: das wäre
 auf jedem Klick ein unnötiger Umweg. `HOMEPAGE_URL` (Default und `.env`) zeigt ebenfalls
 dorthin.
+
+### Google-Ads-Tag & Einwilligungs-Banner
+Das Google-Ads-Tag (`AW-18481174898`, Konstante `GOOGLE_ADS_ID` in `main.py`) steht in
+`templates/_google_tag.html`, eingebunden direkt nach `<head>` in `index.html`,
+`einladung.html` und `impressum.html` – **nicht** in `freigabe.html` (Token-Seite für
+Auftraggeber, keine Anzeigen-Zielseite) und nicht im Admin. Dasselbe Tag, dasselbe Konto
+und dasselbe Banner wie auf ralfwbalz.ch, aber bewusst als eigene Kopie.
+
+Consent Mode im **Basis-Modus**: `gtag.js` wird erst nach „Zustimmen" geladen, eine Ablehnung
+heisst also gar keine Anfrage an Google. Die Wahl liegt in `localStorage`
+(`werbe_einwilligung` = `ja`/`nein`), pro Domain – wer auf ralfwbalz.ch zugestimmt hat, wird
+hier erneut gefragt. Banner, Footer-Link „Cookie-Einstellungen" (Widerruf: löscht
+`_gcl*`/`_ga*` und lädt neu) und `window.googleAdsKonversion()` liegen in
+`static/js/einwilligung.js`.
+
+Die Conversion feuert in `app.js` beim Stream-Ereignis `offer_created`, nur mit Zustimmung
+und nur, wenn `GOOGLE_ADS_KONVERSION` gesetzt ist – das vollständige `send_to` der
+Conversion-Aktion „Offerte angefordert" (`AW-18481174898/<label>`), beim Import gelesen und
+als Jinja-Global an die Templates gegeben. Das Impressum hat den passenden Abschnitt
+`#google-ads`, auf den das Banner verlinkt.
 
 ### HEAD-Anfragen
 `HeadWieGet` (ASGI-Middleware oben in `main.py`) beantwortet `HEAD` wie `GET`, nur ohne
