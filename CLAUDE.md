@@ -101,8 +101,12 @@ Keine Tests/Linter konfiguriert.
   Token-Link `PUBLIC_BASE_URL/?z=<token>` (Ausnahme: `selbst_verifiziert`, s. u.); ein früher
   gesetztes `zugang_ok` allein zeigt die Chat-Seite nicht mehr. Ein gültiger Token setzt
   `request.session["zugang_ok"]`, das die Endpunkte `/chat*` eines bereits laufenden Gesprächs
-  freischaltet; ohne gültigen Zugang liefert `/` die `einladung.html` (403) und `/chat*`
-  antworten 403. `zugangslinks` sind **bewusst mehrfach nutzbar** (eine `session_id` entsteht pro Reload neu)
+  freischaltet; ohne gültigen Zugang liefert `/` die `einladung.html` und `/chat*`
+  antworten 403. Die `einladung.html` geht bewusst mit **Status 200** raus (nicht 403, wie
+  bis zum 28.09.2026): sie ist die reguläre Startseite für alle, die ohne Link kommen, und
+  ein 403 gilt Crawlern als nicht erreichbare Seite — OpenAIs `OAI-AdsBot` lehnte deshalb
+  die Zielseite einer ChatGPT-Anzeige ab. Siehe *Indexierung* weiter unten; die Statistik
+  auf ralfwbalz.ch hing an diesem 403 und wurde mit umgestellt. `zugangslinks` sind **bewusst mehrfach nutzbar** (eine `session_id` entsteht pro Reload neu)
   und lassen sich deaktivieren bzw. zeitlich begrenzen (`gueltig_bis`). Optional speichert ein Link
   `empfaenger_email`, `anrede` (Frau/Herr/Firma) und `name` und kann direkt per E-Mail verschickt
   werden; die Link-URL baut sich aus `settings.basis_url()` (Produktions-Fallback → nie localhost
@@ -118,8 +122,8 @@ Keine Tests/Linter konfiguriert.
   (Tabelle `zugang_codes`, gültig `OTP_TTL_MIN`), versendet ihn via `offer.send_zugang_code` und
   drosselt pro IP (`MAX_ZUGANG_CODES_PER_IP`) sowie per E-Mail (`OTP_RESEND_SEKUNDEN`). `POST
   /zugang/verify` prüft den Code (max. `OTP_MAX_VERSUCHE`) und setzt bei Treffer `zugang_ok`,
-  `selbst_verifiziert` (damit ein Reload von `/` nicht erneut 403 liefert – Token-Links bleiben
-  dagegen pro Besuch zu prüfen) und `kontakt`; eine Info-Mail geht via `offer.notify_selbst_zugang`
+  `selbst_verifiziert` (damit ein Reload von `/` nicht erneut die Hinweisseite liefert –
+  Token-Links bleiben dagegen pro Besuch zu prüfen) und `kontakt`; eine Info-Mail geht via `offer.notify_selbst_zugang`
   an `CONTACT_EMAIL`. Honeypot-Feld `website` wie beim Chat.
 - **KI-Anbieter** (`settings.ki_anbieter()`, im Admin umschaltbar): `claude` (Default) oder
   `openai` (ChatGPT `gpt-4.1`). `agent.stream_reply` dispatcht entsprechend.
@@ -163,6 +167,22 @@ und einer klebenden `.composer`. Darunter liegt ein Footer im Stil der Hauptseit
 „Datenschutz & Impressum" und dem **Login** in den Admin-Bereich; in der Kopfzeile gibt es
 keinen Login mehr. Das Markup ist wie bisher je Seite dupliziert (kein `extends` auf der
 öffentlichen Seite), eine CSS-Version (`?v=…`) also in **sechs** Templates zu erhöhen.
+
+### Indexierung & Crawler
+`GET /robots.txt` und `GET /sitemap.xml` werden in `main.py` inline erzeugt (Domain
+hart verdrahtet) und liegen **vor** dem Zugangs-Gate. Die robots.txt gibt drei Gruppen aus –
+`OAI-AdsBot`, `OAI-SearchBot` und `*` –, weil OpenAI für ChatGPT Ads eine eigene Gruppe für
+`OAI-AdsBot` verlangt. Dabei gilt: eine **benannte** User-agent-Gruppe ersetzt die
+`*`-Gruppe vollständig, die Regeln müssen also je Gruppe wiederholt werden; darum stehen sie
+einmal in `_ROBOTS_REGELN` und werden über `_ROBOTS_AGENTEN` ausgegeben. Gesperrt bleiben
+überall `/chat`, `/freigabe` und `/admin`.
+
+Die Meta-Robots-Tags sind **nicht** einheitlich, das ist Absicht:
+`einladung.html` und `impressum.html` stehen auf `index, follow` und sind in der Sitemap –
+`einladung.html` ist die Zielseite der Anzeige und trägt zusätzlich `description`,
+`canonical` und OG-/Twitter-Tags. `index.html` (Chat), `freigabe.html` (Token-URL) und die
+beiden Admin-Templates behalten `noindex`. Dass `GET /` je nach Zugang zwei verschiedene
+Templates rendert, ist dabei unkritisch: ein Crawler sieht nur `einladung.html`.
 
 Der Admin-Bereich behält seine eigene `.admin-topbar` (`admin/layout.html`); `admin/login.html`
 nutzt sie neu ebenfalls (vorher eine kaputte `.topbar`-Variante mit undefinierter `.subbrand`).

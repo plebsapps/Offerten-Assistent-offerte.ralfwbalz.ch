@@ -117,10 +117,13 @@ async def index(request: Request):
             # Session zugelassen, ohne bei jedem Reload erneut einen Token zu brauchen.
             pass
         else:
+            # Bewusst Status 200: die Hinweisseite ist die reguläre Startseite für alle,
+            # die ohne Link kommen (mit Self-Service-Formular), kein Fehlerfall. Ein 403
+            # gilt Crawlern als nicht erreichbare Seite – OAI-AdsBot lehnt die Zielseite
+            # einer ChatGPT-Anzeige dann ab.
             return templates.TemplateResponse(
                 "einladung.html",
                 {"request": request, "selbst_zugang": settings.selbst_zugang_aktiv()},
-                status_code=403,
             )
     kontakt = request.session.get("kontakt") or {}
     return templates.TemplateResponse(
@@ -135,10 +138,39 @@ async def impressum(request: Request):
     return templates.TemplateResponse("impressum.html", {"request": request})
 
 
+_ROBOTS_REGELN = "Allow: /\nDisallow: /chat\nDisallow: /freigabe\nDisallow: /admin\n"
+# OpenAI verlangt für ChatGPT Ads eine eigene Gruppe für OAI-AdsBot und empfiehlt
+# zusätzlich OAI-SearchBot. Eine benannte Gruppe ersetzt die *-Gruppe vollständig –
+# darum stehen die Regeln je Gruppe, sonst hätten die beiden Zugriff auf /chat & Co.
+_ROBOTS_AGENTEN = ("OAI-AdsBot", "OAI-SearchBot", "*")
+
+
 @app.get("/robots.txt", response_class=Response)
 async def robots():
-    content = "User-agent: *\nAllow: /\nDisallow: /chat\nDisallow: /freigabe\nDisallow: /admin\n"
+    gruppen = "\n".join(f"User-agent: {a}\n{_ROBOTS_REGELN}" for a in _ROBOTS_AGENTEN)
+    content = f"{gruppen}\nSitemap: https://offerte.ralfwbalz.ch/sitemap.xml\n"
     return Response(content=content, media_type="text/plain")
+
+
+@app.get("/sitemap.xml", response_class=Response)
+async def sitemap():
+    # Nur die beiden öffentlichen Seiten: /chat, /freigabe und /admin sind in der
+    # robots.txt gesperrt, die Chat-Seite selbst ist ohne Zugang gar nicht erreichbar.
+    content = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://offerte.ralfwbalz.ch/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://offerte.ralfwbalz.ch/impressum</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>
+"""
+    return Response(content=content, media_type="application/xml")
 
 
 def _selbst_zugang_offen() -> bool:
