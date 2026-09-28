@@ -168,6 +168,16 @@ und einer klebenden `.composer`. Darunter liegt ein Footer im Stil der Hauptseit
 keinen Login mehr. Das Markup ist wie bisher je Seite dupliziert (kein `extends` auf der
 öffentlichen Seite), eine CSS-Version (`?v=…`) also in **sechs** Templates zu erhöhen.
 
+### Favicon
+`static/img/favicon.ico` (16/32/48), `favicon.svg` und `apple-touch-icon.png` (180 px, Grund
+`#0a0a0a`) sind **Kopien aus dem Hauptprojekt** – erzeugt von
+`ralfwbalz/werkzeuge/favicon_erzeugen.py` aus dem Logo, nicht von Hand gezeichnet. Wer sie
+ändern will, ändert sie dort und kopiert sie erneut herüber; Pillow ist hier keine
+Abhängigkeit. `main.py` liefert `/favicon.ico` und `/apple-touch-icon.png` per `FileResponse`
+an der Wurzel aus, weil Browser und iOS diese Pfade unabhängig von den `<link>`-Tags
+anfragen. Beide liegen wie robots.txt vor dem Zugangs-Gate. `logo-ralfwbalz.svg` bleibt
+unangetastet und dient weiterhin als Footer-Logo und OG-Bild.
+
 ### Indexierung & Crawler
 `GET /robots.txt` und `GET /sitemap.xml` werden in `main.py` inline erzeugt (Domain
 hart verdrahtet) und liegen **vor** dem Zugangs-Gate. Die robots.txt gibt drei Gruppen aus –

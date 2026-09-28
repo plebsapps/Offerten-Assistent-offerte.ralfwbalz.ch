@@ -12,7 +12,8 @@ import logging
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI, Request, Form, File, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse, RedirectResponse
+from fastapi.responses import (HTMLResponse, JSONResponse, Response, StreamingResponse,
+                               RedirectResponse, FileResponse)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -136,6 +137,18 @@ async def index(request: Request):
 @app.get("/impressum", response_class=HTMLResponse)
 async def impressum(request: Request):
     return templates.TemplateResponse("impressum.html", {"request": request})
+
+
+# Browser fragen /favicon.ico und iOS /apple-touch-icon.png unabhängig von den
+# <link>-Tags an der Wurzel an. Beide liegen wie robots.txt vor dem Zugangs-Gate.
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/img/favicon.ico", media_type="image/x-icon")
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+async def apple_touch_icon():
+    return FileResponse("static/img/apple-touch-icon.png", media_type="image/png")
 
 
 _ROBOTS_REGELN = "Allow: /\nDisallow: /chat\nDisallow: /freigabe\nDisallow: /admin\n"
