@@ -168,7 +168,7 @@ body {
   margin: 0;
   text-align: left;
 }
-.footer-links { display: flex; gap: 24px; }
+.footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 24px; }
 .footer-links a {
   color: var(--white);
   font-size: .9rem;
@@ -204,6 +204,20 @@ body {
 
 .intro h1 { color: var(--navy); font-size: 1.6rem; margin-top: 8px; }
 .intro p { color: var(--muted); line-height: 1.6; }
+.btn-linkedin {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 22px;
+  border-radius: 8px;
+  background: #0A66C2;
+  color: #fff;
+  font-size: 1rem;
+  text-decoration: none;
+}
+.btn-linkedin:hover { background: #004182; }
 
 .btn-primary {
   background: var(--blue);
