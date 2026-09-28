@@ -39,6 +39,45 @@ app.add_middleware(
     same_site="lax",
     https_only=os.environ.get("PUBLIC_BASE_URL", "").startswith("https"),
 )
+
+
+class HeadWieGet:
+    """Beantwortet HEAD wie GET, aber ohne Rumpf.
+
+    FastAPI registriert bei ``@app.get(...)`` wirklich nur GET – anders als reines
+    Starlette, das HEAD automatisch mitnimmt. Ohne diese Middleware antwortet jeder
+    Pfad auf HEAD mit 405. Browser stört das nicht, Link-Prüfer, Monitoring und
+    Crawler, die die Erreichbarkeit vorab mit HEAD testen, schon – und die Startseite
+    ist die Zielseite einer Anzeige. Gleiche Klasse liegt in ralfwbalz/main.py; die
+    beiden Projekte teilen bewusst keinen Code.
+
+    Die Methode wird nur in einer **Kopie** des Scope auf GET gesetzt, damit uvicorn
+    weiterhin HEAD sieht und seine eigene Rumpf-Unterdrückung greift. Die Kopfzeilen
+    der GET-Antwort bleiben unverändert (inklusive Content-Length), wie es die
+    Spezifikation für HEAD verlangt; nur der Rumpf wird verworfen.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] != "HEAD":
+            await self.app(scope, receive, send)
+            return
+
+        async def ohne_rumpf(nachricht):
+            if nachricht["type"] == "http.response.body":
+                # Zwischenstücke verwerfen, am Ende genau einen leeren Rumpf senden.
+                if not nachricht.get("more_body", False):
+                    await send({"type": "http.response.body", "body": b"",
+                                "more_body": False})
+                return
+            await send(nachricht)
+
+        await self.app(dict(scope, method="GET"), receive, ohne_rumpf)
+
+
+app.add_middleware(HeadWieGet)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 app.include_router(routes_admin.router)

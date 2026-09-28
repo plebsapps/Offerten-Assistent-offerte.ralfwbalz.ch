@@ -174,6 +174,16 @@ deren sitemap.xml, robots.txt und canonical-Tags). Nicht auf `www.` zurückstell
 auf jedem Klick ein unnötiger Umweg. `HOMEPAGE_URL` (Default und `.env`) zeigt ebenfalls
 dorthin.
 
+### HEAD-Anfragen
+`HeadWieGet` (ASGI-Middleware oben in `main.py`) beantwortet `HEAD` wie `GET`, nur ohne
+Rumpf. Ohne sie antwortet jeder Pfad mit **405**, weil FastAPIs `@app.get(...)` wirklich nur
+`GET` registriert – anders als reines Starlette. Relevant für Link-Prüfer, Monitoring und
+Crawler, die die Erreichbarkeit vorab mit `HEAD` testen; die Startseite ist die Zielseite
+einer Anzeige. Die Methode wird nur in einer **Kopie** des Scope auf `GET` gesetzt, damit
+uvicorn weiterhin `HEAD` sieht. Gleiche Klasse in `ralfwbalz/main.py` – die Projekte teilen
+bewusst keinen Code. Routen, die es nur als `POST` gibt (`/chat`, `/zugang/*`), antworten auf
+`HEAD` weiterhin korrekt mit 405.
+
 ### Favicon
 `static/img/favicon.ico` (16/32/48), `favicon.svg` und `apple-touch-icon.png` (180 px, Grund
 `#0a0a0a`) sind **Kopien aus dem Hauptprojekt** – erzeugt von
