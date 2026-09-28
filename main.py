@@ -7,6 +7,7 @@ Freigabe-Endpunkt, über den Ralf die fertige Offerte an den Auftraggeber freigi
 """
 import os
 import json
+import asyncio
 import random
 import logging
 from datetime import datetime, timedelta
@@ -105,9 +106,33 @@ OTP_RESEND_SEKUNDEN = int(os.environ.get("OTP_RESEND_SEKUNDEN", "60"))  # Sperre
 MAX_ZUGANG_CODES_PER_IP = int(os.environ.get("MAX_ZUGANG_CODES_PER_IP", "5"))  # je Stunde/IP
 
 
+# Personendaten (Gespräche, Offerten samt PDF, Zugangscodes, unbenutzte
+# Einladungslinks) werden nach 12 Monaten gelöscht – so steht es im Impressum.
+AUFBEWAHRUNG_TAGE = 365
+AUFRAEUMEN_INTERVALL = 24 * 3600  # einmal täglich, erster Lauf beim Start
+
+
+def _aufraeumen() -> None:
+    try:
+        anzahl = db.alte_daten_loeschen(AUFBEWAHRUNG_TAGE)
+        if any(anzahl.values()):
+            logger.info("Aufbewahrung: gelöscht %s", anzahl)
+    except Exception as e:  # noqa: BLE001 – Aufräumen darf den Betrieb nie stören
+        logger.error("Aufbewahrung fehlgeschlagen: %s", e)
+
+
+async def _aufraeumen_schleife() -> None:
+    loop = asyncio.get_running_loop()
+    while True:
+        await loop.run_in_executor(None, _aufraeumen)
+        await asyncio.sleep(AUFRAEUMEN_INTERVALL)
+
+
 @app.on_event("startup")
-def _startup() -> None:
+async def _startup() -> None:
     db.init()
+    # Referenz halten, sonst kann der Garbage Collector die Aufgabe einsammeln.
+    app.state.aufraeumen = asyncio.create_task(_aufraeumen_schleife())
 
 
 @app.exception_handler(auth.NichtAngemeldet)

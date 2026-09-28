@@ -6,7 +6,7 @@ Low-Traffic-Profil und vermeidet einen separaten DB-Container.
 import os
 import sqlite3
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 DB_PATH = os.path.join(DATA_DIR, "offerte.db")
@@ -382,3 +382,42 @@ def get_offer_by_session(session_id: str) -> dict | None:
             (session_id,),
         ).fetchone()
         return dict(row) if row else None
+
+
+# ------------------------------------------------------------ Aufbewahrung --
+
+def alte_daten_loeschen(tage: int) -> dict:
+    """Löscht Personendaten, die älter als ``tage`` sind (Zusage im Impressum).
+
+    - Gespräche samt Nachrichten, Offerten und PDF-Datei, gemessen am Gesprächsbeginn
+    - Zugangscodes (E-Mail, Name, IP), gemessen an der Anforderung
+    - Einladungslinks (Empfänger-Daten), die so lange **nicht mehr benutzt** wurden
+    Gibt die Anzahl gelöschter Zeilen je Tabelle zurück."""
+    grenze = (datetime.now() - timedelta(days=tage)).isoformat(timespec="seconds")
+    with _conn() as c:
+        alt = "SELECT id FROM sessions WHERE created_at < ?"
+        pdfs = [r["pdf_path"] for r in c.execute(
+            f"SELECT pdf_path FROM offers WHERE session_id IN ({alt})", (grenze,))
+            if r["pdf_path"]]
+        anzahl = {
+            "nachrichten": c.execute(
+                f"DELETE FROM messages WHERE session_id IN ({alt})", (grenze,)).rowcount,
+            "offerten": c.execute(
+                f"DELETE FROM offers WHERE session_id IN ({alt})", (grenze,)).rowcount,
+            "gespraeche": c.execute(
+                "DELETE FROM sessions WHERE created_at < ?", (grenze,)).rowcount,
+            "zugangscodes": c.execute(
+                "DELETE FROM zugang_codes WHERE created_at < ?", (grenze,)).rowcount,
+            "zugangslinks": c.execute(
+                "DELETE FROM zugangslinks WHERE COALESCE(letzte_nutzung, created_at) < ?",
+                (grenze,)).rowcount,
+        }
+    # Dateien erst nach dem Commit entfernen: scheitert die DB, bleibt alles stehen.
+    for pfad in pdfs:
+        try:
+            os.remove(pfad)
+        except FileNotFoundError:
+            pass
+    anzahl["pdfs"] = len(pdfs)
+    return anzahl
+

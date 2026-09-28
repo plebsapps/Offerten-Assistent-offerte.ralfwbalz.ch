@@ -195,6 +195,15 @@ Conversion-Aktion „Offerte angefordert" (`AW-18481174898/<label>`), beim Impor
 als Jinja-Global an die Templates gegeben. Das Impressum hat den passenden Abschnitt
 `#google-ads`, auf den das Banner verlinkt.
 
+### Aufbewahrung (12 Monate)
+`db.alte_daten_loeschen(tage)` löscht, was älter als `AUFBEWAHRUNG_TAGE` (365, `main.py`) ist:
+Gespräche samt Nachrichten, Offerten und PDF-Datei (gemessen an `sessions.created_at`),
+Zugangscodes (`created_at`) und Einladungslinks, die so lange **nicht benutzt** wurden
+(`COALESCE(letzte_nutzung, created_at)` – ein aktiv genutzter Link bleibt). Läuft beim Start
+und danach täglich als asyncio-Task (`_aufraeumen_schleife`, der eigentliche Lauf im Executor);
+Fehler werden nur geloggt. Das Impressum sagt dasselbe zu – beides zusammen ändern.
+Nicht erfasst: die Offerten-Mails mit Transkript im Postfach von `CONTACT_EMAIL`.
+
 ### HEAD-Anfragen
 `HeadWieGet` (ASGI-Middleware oben in `main.py`) beantwortet `HEAD` wie `GET`, nur ohne
 Rumpf. Ohne sie antwortet jeder Pfad mit **405**, weil FastAPIs `@app.get(...)` wirklich nur
