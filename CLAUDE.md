@@ -126,6 +126,20 @@ Keine Tests/Linter konfiguriert.
   `selbst_verifiziert` (damit ein Reload von `/` nicht erneut die Hinweisseite liefert –
   Token-Links bleiben dagegen pro Besuch zu prüfen) und `kontakt`; eine Info-Mail geht via `offer.notify_selbst_zugang`
   an `CONTACT_EMAIL`. Honeypot-Feld `website` wie beim Chat.
+- **Kurzanfrage** (`GET /kurzanfrage`, `templates/kurzanfrage.html`): der schnelle Weg ohne
+  Gespräch, verlinkt von `einladung.html` (Button rechts neben LinkedIn, darüber ein grosses
+  „ODER“; nur bei aktivem Self-Service). **Unabhängig vom Zugangsmodus** erreichbar, indexierbar,
+  in der Sitemap. Thema (Dropdown aus `KURZANFRAGE_THEMEN` in `main.py`, „Allgemein“ zuerst,
+  Rest alphabetisch; der Server prüft gegen dieselbe Liste), Freitext (max.
+  `KURZANFRAGE_MAX_ZEICHEN`) und E-Mail → `POST /kurzanfrage/code` speichert alles in der Tabelle
+  `kurzanfragen` und mailt einen Code (`offer.send_kurzanfrage_code`, nutzt
+  `zugang_code_email.html` mit eigenem `titel`; der Text sagt, dass es eine Kurzanfrage ist und
+  Ralf sich nach der Bestätigung meldet). `POST /kurzanfrage/bestaetigen` prüft wie
+  `/zugang/verify` und schickt die Anfrage dann an `CONTACT_EMAIL` (`send_kurzanfrage_an_ralf`,
+  Reply-To Besucher, Besuchertext im HTML-Teil `html.escape`d). Erst senden, dann
+  `bestaetigt_am` setzen – ein SMTP-Fehler lässt den Code gültig. Gleiche Limits wie beim Zugang
+  (`OTP_*`, `MAX_ZUGANG_CODES_PER_IP`, eigene Zählung), Honeypot `website`. **Eigene Tabelle
+  statt `zugang_codes`**, damit ein Kurzanfrage-Code nie den Chat freischaltet.
 - **KI-Anbieter** (`settings.ki_anbieter()`, im Admin umschaltbar): `claude` (Default) oder
   `openai` (ChatGPT `gpt-4.1`). `agent.stream_reply` dispatcht entsprechend.
 - **Kostenbremse** in `POST /chat` (vor dem Agentenaufruf): geprüft werden Turns **und** Token
@@ -157,7 +171,7 @@ automatischen Versand an den Kunden nicht ohne Rücksprache aktivieren. Das PDF 
 es, wird neu gerendert).
 
 ### Kopfzeile, Navigation & Footer
-Die vier Besucherseiten (`index.html`, `einladung.html`, `impressum.html`, `freigabe.html`)
+Die fünf Besucherseiten (`index.html`, `einladung.html`, `kurzanfrage.html`, `impressum.html`, `freigabe.html`)
 tragen die **gleiche Navigation wie ralfwbalz.ch**: weisse Leiste, animiertes Canvas-Logo
 (`static/js/logo.js`, `#navLogo`), „Home" (`{{ homepage_url }}`, wie das Logo), Links auf
 `https://ralfwbalz.ch/#…` plus „Offerte"
@@ -167,7 +181,8 @@ Schublade (Toggle ebenfalls in `logo.js`). Anders als auf der Hauptseite steht d
 und einer klebenden `.composer`. Darunter liegt ein Footer im Stil der Hauptseite mit
 „Datenschutz & Impressum" und dem **Login** in den Admin-Bereich; in der Kopfzeile gibt es
 keinen Login mehr. Das Markup ist wie bisher je Seite dupliziert (kein `extends` auf der
-öffentlichen Seite), eine CSS-Version (`?v=…`) also in **sechs** Templates zu erhöhen.
+öffentlichen Seite), eine CSS-Version (`?v=…`) also in **allen fünf** Besucher-Templates zu
+erhöhen (die beiden Admin-Templates führen eine eigene Nummer).
 
 Alle Links auf die Hauptseite zeigen auf die **nackte** Domain, nicht auf `www.` – dort
 leitet nginx seit dem 28.09.2026 mit 301 um, und kanonisch ist `ralfwbalz.ch` (so stehen es
@@ -178,7 +193,7 @@ dorthin.
 ### Google-Ads-Tag & Einwilligungs-Banner
 Das Google-Ads-Tag (`AW-18481174898`, Konstante `GOOGLE_ADS_ID` in `main.py`) steht in
 `templates/_google_tag.html`, eingebunden direkt nach `<head>` in `index.html`,
-`einladung.html` und `impressum.html` – **nicht** in `freigabe.html` (Token-Seite für
+`einladung.html`, `kurzanfrage.html` und `impressum.html` – **nicht** in `freigabe.html` (Token-Seite für
 Auftraggeber, keine Anzeigen-Zielseite) und nicht im Admin. Dasselbe Tag, dasselbe Konto
 und dasselbe Banner wie auf ralfwbalz.ch, aber bewusst als eigene Kopie.
 
@@ -198,7 +213,7 @@ als Jinja-Global an die Templates gegeben. Das Impressum hat den passenden Absch
 ### Aufbewahrung (12 Monate)
 `db.alte_daten_loeschen(tage)` löscht, was älter als `AUFBEWAHRUNG_TAGE` (365, `main.py`) ist:
 Gespräche samt Nachrichten, Offerten und PDF-Datei (gemessen an `sessions.created_at`),
-Zugangscodes (`created_at`) und Einladungslinks, die so lange **nicht benutzt** wurden
+Zugangscodes und Kurzanfragen (je `created_at`) und Einladungslinks, die so lange **nicht benutzt** wurden
 (`COALESCE(letzte_nutzung, created_at)` – ein aktiv genutzter Link bleibt). Läuft beim Start
 und danach täglich als asyncio-Task (`_aufraeumen_schleife`, der eigentliche Lauf im Executor);
 Fehler werden nur geloggt. Das Impressum sagt dasselbe zu – beides zusammen ändern.
@@ -234,7 +249,7 @@ einmal in `_ROBOTS_REGELN` und werden über `_ROBOTS_AGENTEN` ausgegeben. Gesper
 überall `/chat`, `/freigabe` und `/admin`.
 
 Die Meta-Robots-Tags sind **nicht** einheitlich, das ist Absicht:
-`einladung.html` und `impressum.html` stehen auf `index, follow` und sind in der Sitemap –
+`einladung.html`, `kurzanfrage.html` und `impressum.html` stehen auf `index, follow` und sind in der Sitemap –
 `einladung.html` ist die Zielseite der Anzeige und trägt zusätzlich `description`,
 `canonical` und OG-/Twitter-Tags. `index.html` (Chat), `freigabe.html` (Token-URL) und die
 beiden Admin-Templates behalten `noindex`. Dass `GET /` je nach Zugang zwei verschiedene

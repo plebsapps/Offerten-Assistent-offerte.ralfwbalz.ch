@@ -74,8 +74,21 @@ def init() -> None:
                 versuche        INTEGER NOT NULL DEFAULT 0,
                 verifiziert_am  TEXT
             );
+            CREATE TABLE IF NOT EXISTS kurzanfragen (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                thema           TEXT NOT NULL,
+                text            TEXT NOT NULL,
+                email           TEXT NOT NULL,
+                code            TEXT NOT NULL,
+                ip              TEXT,
+                created_at      TEXT NOT NULL,
+                gueltig_bis     TEXT NOT NULL,
+                versuche        INTEGER NOT NULL DEFAULT 0,
+                bestaetigt_am   TEXT
+            );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
             CREATE INDEX IF NOT EXISTS idx_zugang_codes_email ON zugang_codes(email);
+            CREATE INDEX IF NOT EXISTS idx_kurzanfragen_email ON kurzanfragen(email);
             """
         )
         # Migrationen für bestehende DBs: Token-Verbrauch je Session nachrüsten.
@@ -323,6 +336,69 @@ def list_verifizierte_zugaenge() -> list[dict]:
         return [dict(r) for r in rows]
 
 
+# ------------------------------------------------------------ Kurzanfragen ----
+# Formular /kurzanfrage: Thema + Text + E-Mail. Die Anfrage wird mit einem Code
+# gespeichert und geht erst an Ralf, wenn der Besucher den Code bestätigt hat.
+# Eigene Tabelle statt zugang_codes: ein Kurzanfrage-Code schaltet den Chat nicht frei.
+
+def create_kurzanfrage(thema: str, text: str, email: str, code: str,
+                       ip: str, gueltig_bis: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO kurzanfragen "
+            "(thema, text, email, code, ip, created_at, gueltig_bis) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (thema, text, email, code, ip, _now(), gueltig_bis),
+        )
+
+
+def get_offene_kurzanfrage(email: str) -> dict | None:
+    """Neueste noch nicht bestätigte Kurzanfrage dieser E-Mail (oder None)."""
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM kurzanfragen WHERE email = ? AND bestaetigt_am IS NULL "
+            "ORDER BY id DESC LIMIT 1",
+            (email,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def increment_kurzanfrage_versuche(anfrage_id: int) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE kurzanfragen SET versuche = versuche + 1 WHERE id = ?", (anfrage_id,)
+        )
+
+
+def mark_kurzanfrage_bestaetigt(anfrage_id: int) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE kurzanfragen SET bestaetigt_am = ? WHERE id = ?",
+            (_now(), anfrage_id),
+        )
+
+
+def letzte_kurzanfrage_zeitpunkt(email: str) -> str | None:
+    """created_at der zuletzt angeforderten Kurzanfrage (für die Resend-Sperre)."""
+    with _conn() as c:
+        row = c.execute(
+            "SELECT created_at FROM kurzanfragen WHERE email = ? "
+            "ORDER BY id DESC LIMIT 1",
+            (email,),
+        ).fetchone()
+        return row["created_at"] if row else None
+
+
+def count_recent_kurzanfragen_for_ip(ip: str, within_seconds: int) -> int:
+    cutoff = datetime.fromtimestamp(time.time() - within_seconds).isoformat(timespec="seconds")
+    with _conn() as c:
+        row = c.execute(
+            "SELECT COUNT(*) AS n FROM kurzanfragen WHERE ip = ? AND created_at >= ?",
+            (ip, cutoff),
+        ).fetchone()
+        return row["n"]
+
+
 # ----------------------------------------------------------- Token-Verbrauch --
 
 def add_session_usage(session_id: str, tokens_in: int, tokens_out: int) -> None:
@@ -391,6 +467,7 @@ def alte_daten_loeschen(tage: int) -> dict:
 
     - Gespräche samt Nachrichten, Offerten und PDF-Datei, gemessen am Gesprächsbeginn
     - Zugangscodes (E-Mail, Name, IP), gemessen an der Anforderung
+    - Kurzanfragen (Thema, Text, E-Mail, IP), gemessen an der Anforderung
     - Einladungslinks (Empfänger-Daten), die so lange **nicht mehr benutzt** wurden
     Gibt die Anzahl gelöschter Zeilen je Tabelle zurück."""
     grenze = (datetime.now() - timedelta(days=tage)).isoformat(timespec="seconds")
@@ -408,6 +485,8 @@ def alte_daten_loeschen(tage: int) -> dict:
                 "DELETE FROM sessions WHERE created_at < ?", (grenze,)).rowcount,
             "zugangscodes": c.execute(
                 "DELETE FROM zugang_codes WHERE created_at < ?", (grenze,)).rowcount,
+            "kurzanfragen": c.execute(
+                "DELETE FROM kurzanfragen WHERE created_at < ?", (grenze,)).rowcount,
             "zugangslinks": c.execute(
                 "DELETE FROM zugangslinks WHERE COALESCE(letzte_nutzung, created_at) < ?",
                 (grenze,)).rowcount,

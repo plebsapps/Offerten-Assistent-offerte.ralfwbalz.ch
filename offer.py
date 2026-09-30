@@ -5,6 +5,7 @@ Chat-Transkript und einem tokenisierten Freigabe-Link. Erst wenn Ralf diesen Lin
 aufruft, geht die Offerte an den Auftraggeber.
 """
 import os
+import html as html_lib
 import json
 import smtplib
 import secrets
@@ -307,6 +308,72 @@ def send_zugang_code(empfaenger_email: str, code: str, anrede: str = "",
         html=html,
         plain=plain,
         reply_to=os.environ.get("CONTACT_EMAIL"),
+    )
+
+
+KURZANFRAGE_HINWEIS = (
+    "Dies ist eine Kurzanfrage. Sobald Sie Ihre E-Mail-Adresse mit dem Code bestätigt "
+    "haben, erhalte ich Ihre Anfrage und melde mich bei Ihnen."
+)
+
+
+def send_kurzanfrage_code(empfaenger_email: str, code: str, ttl_min: int = 10) -> None:
+    """Sendet den Bestätigungscode für eine Kurzanfrage an den Besucher.
+
+    Wirft bei SMTP-Fehlern – der aufrufende Endpunkt fängt das ab.
+    """
+    hinweis = "Geben Sie den Code auf der Seite ein, auf der Sie die Kurzanfrage gestellt haben."
+    html = _env.get_template("zugang_code_email.html").render(
+        titel="Ihre Kurzanfrage",
+        begruessung="Guten Tag",
+        einleitung=KURZANFRAGE_HINWEIS,
+        hinweis=hinweis,
+        code=code,
+        ttl_min=ttl_min,
+    )
+    plain = (
+        "Guten Tag\n\n"
+        f"{KURZANFRAGE_HINWEIS}\n\n"
+        f"    {code}\n\n"
+        f"Der Code ist {ttl_min} Minuten gültig. {hinweis} Falls Sie keine Kurzanfrage "
+        "gestellt haben, ignorieren Sie diese E-Mail.\n\n"
+        "Freundliche Grüsse\nRalf W. Balz\nralfwbalz.ch"
+    )
+    _smtp_send(
+        recipient=empfaenger_email,
+        subject=f"Ihre Kurzanfrage – Bestätigungscode {code}",
+        html=html,
+        plain=plain,
+        reply_to=os.environ.get("CONTACT_EMAIL"),
+    )
+
+
+def send_kurzanfrage_an_ralf(thema: str, text: str, email: str) -> None:
+    """Bestätigte Kurzanfrage an Ralf (CONTACT_EMAIL), Reply-To der Besucher."""
+    zeitpunkt = datetime.now().strftime("%d.%m.%Y um %H:%M Uhr")
+    plain = (
+        "Neue Kurzanfrage über offerte.ralfwbalz.ch (E-Mail-Adresse bestätigt):\n\n"
+        f"Thema:     {thema}\n"
+        f"E-Mail:    {email}\n"
+        f"Zeitpunkt: {zeitpunkt}\n\n"
+        f"Was gesucht wird:\n{text}\n"
+    )
+    # Besuchereingaben escapen: sonst käme getipptes Markup als echtes Markup im Postfach an.
+    e = html_lib.escape
+    html = (
+        "<p>Neue Kurzanfrage über offerte.ralfwbalz.ch (E-Mail-Adresse bestätigt):</p>"
+        f"<p><strong>Thema:</strong> {e(thema)}<br>"
+        f"<strong>E-Mail:</strong> {e(email)}<br>"
+        f"<strong>Zeitpunkt:</strong> {zeitpunkt}</p>"
+        "<p><strong>Was gesucht wird:</strong></p>"
+        f"<p style=\"white-space:pre-wrap\">{e(text)}</p>"
+    )
+    _smtp_send(
+        recipient=os.environ["CONTACT_EMAIL"],
+        subject=f"Kurzanfrage: {thema}",
+        html=html,
+        plain=plain,
+        reply_to=email,
     )
 
 

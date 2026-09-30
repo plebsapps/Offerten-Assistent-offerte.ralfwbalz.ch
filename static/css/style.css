@@ -204,20 +204,37 @@ body {
 
 .intro h1 { color: var(--navy); font-size: 1.6rem; margin-top: 8px; }
 .intro p { color: var(--muted); line-height: 1.6; }
-.btn-linkedin {
+/* „ODER“ zwischen Zugangsformular und den Buttons darunter – gleich gross wie .intro h1 */
+.intro .oder {
+  color: var(--navy);
+  font-size: 1.6rem;
+  font-weight: 700;
+  max-width: 380px;
+  text-align: center;
+  margin: 24px 0 0;
+}
+.button-zeile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.btn-linkedin,
+.btn-kurzanfrage {
   display: flex;
   width: fit-content;
   align-items: center;
   gap: 8px;
-  margin-top: 16px;
   padding: 12px 22px;
   border-radius: 8px;
-  background: #0A66C2;
   color: #fff;
   font-size: 1rem;
   text-decoration: none;
 }
+.btn-linkedin { background: #0A66C2; }
 .btn-linkedin:hover { background: #004182; }
+.btn-kurzanfrage { background: var(--blue); }
+.btn-kurzanfrage:hover { background: #2563eb; }
 
 .btn-primary {
   background: var(--blue);
@@ -239,15 +256,18 @@ body {
   margin-top: 14px;
 }
 .zugang-self input,
-.zugang-self select {
+.zugang-self select,
+.zugang-self textarea {
   padding: 11px 12px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   font-size: 1rem;
   background: #fff;
 }
+.zugang-self textarea { font-family: inherit; resize: vertical; }
 .zugang-self input:focus,
-.zugang-self select:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
+.zugang-self select:focus,
+.zugang-self textarea:focus { outline: 2px solid var(--blue); border-color: var(--blue); }
 .zugang-self .btn-primary { width: 100%; }
 .zugang-status { min-height: 1.2em; margin-top: 10px; font-size: 0.95rem; }
 

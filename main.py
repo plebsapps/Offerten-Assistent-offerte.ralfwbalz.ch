@@ -105,6 +105,25 @@ OTP_MAX_VERSUCHE = int(os.environ.get("OTP_MAX_VERSUCHE", "3"))  # Eingabeversuc
 OTP_RESEND_SEKUNDEN = int(os.environ.get("OTP_RESEND_SEKUNDEN", "60"))  # Sperre erneuter Anfragen
 MAX_ZUGANG_CODES_PER_IP = int(os.environ.get("MAX_ZUGANG_CODES_PER_IP", "5"))  # je Stunde/IP
 
+# Kurzanfrage (/kurzanfrage): Themen fürs Dropdown, "Allgemein" zuerst, dann alphabetisch.
+# Die Seite rendert die Liste, der Server prüft den gewählten Wert dagegen.
+KURZANFRAGE_THEMEN = (
+    "Allgemein",
+    "App-Entwicklung (Mobile)",
+    "Automatisierung von Abläufen",
+    "Beratung / Zweitmeinung",
+    "Datenbank",
+    "Datenmigration",
+    "Excel / Office-Lösungen",
+    "IT-Projekt",
+    "KI-Integration",
+    "Schnittstellen / Integration",
+    "Wartung / Support bestehender Software",
+    "Webanwendung",
+    "Website",
+)
+KURZANFRAGE_MAX_ZEICHEN = 2000
+
 
 # Personendaten (Gespräche, Offerten samt PDF, Zugangscodes, unbenutzte
 # Einladungslinks) werden nach 12 Monaten gelöscht – so steht es im Impressum.
@@ -239,7 +258,7 @@ async def robots():
 
 @app.get("/sitemap.xml", response_class=Response)
 async def sitemap():
-    # Nur die beiden öffentlichen Seiten: /chat, /freigabe und /admin sind in der
+    # Nur die öffentlichen Seiten: /chat, /freigabe und /admin sind in der
     # robots.txt gesperrt, die Chat-Seite selbst ist ohne Zugang gar nicht erreichbar.
     content = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -247,6 +266,11 @@ async def sitemap():
     <loc>https://offerte.ralfwbalz.ch/</loc>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://offerte.ralfwbalz.ch/kurzanfrage</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://offerte.ralfwbalz.ch/impressum</loc>
@@ -354,6 +378,112 @@ async def zugang_verify(request: Request, email: str = Form(""), code: str = For
     except Exception as e:  # noqa: BLE001
         logger.error("Info-Mail Self-Service-Zugang fehlgeschlagen: %s", e)
     return JSONResponse({"ok": True, "redirect": "/"})
+
+
+# ------------------------------------------------------------ Kurzanfrage -----
+# Unabhängig vom Zugangsmodus erreichbar. Die Anfrage geht erst an Ralf, wenn der
+# Besucher seine E-Mail-Adresse per Code bestätigt hat; der Code schaltet den Chat
+# nicht frei (eigene Tabelle kurzanfragen, keine Session-Flags).
+
+@app.get("/kurzanfrage", response_class=HTMLResponse)
+async def kurzanfrage(request: Request):
+    return templates.TemplateResponse(
+        "kurzanfrage.html",
+        {"request": request, "themen": KURZANFRAGE_THEMEN,
+         "max_zeichen": KURZANFRAGE_MAX_ZEICHEN},
+    )
+
+
+@app.post("/kurzanfrage/code")
+async def kurzanfrage_code(request: Request, thema: str = Form(""), text: str = Form(""),
+                           email: str = Form(""), website: str = Form("")):
+    """Speichert die Kurzanfrage und schickt den Bestätigungscode an den Besucher."""
+    # Honeypot: still als Erfolg quittieren, aber nichts senden.
+    if website.strip():
+        return JSONResponse({"ok": True})
+
+    email = email.strip().lower()
+    thema, text = thema.strip(), text.strip()
+    if thema not in KURZANFRAGE_THEMEN:
+        return JSONResponse({"error": "Bitte ein Thema wählen."}, status_code=400)
+    if not text:
+        return JSONResponse({"error": "Bitte beschreiben Sie kurz, was Sie suchen."},
+                            status_code=400)
+    if len(text) > KURZANFRAGE_MAX_ZEICHEN:
+        return JSONResponse(
+            {"error": f"Bitte fassen Sie sich kürzer (max. {KURZANFRAGE_MAX_ZEICHEN} Zeichen)."},
+            status_code=400)
+    if not _email_plausibel(email):
+        return JSONResponse({"error": "Bitte eine gültige E-Mail-Adresse angeben."},
+                            status_code=400)
+
+    ip = _client_ip(request)
+    if db.count_recent_kurzanfragen_for_ip(ip, RATE_WINDOW_SECONDS) >= MAX_ZUGANG_CODES_PER_IP:
+        return JSONResponse(
+            {"error": "Zu viele Anfragen von dieser Verbindung. Bitte später erneut versuchen."},
+            status_code=429,
+        )
+    letzter = db.letzte_kurzanfrage_zeitpunkt(email)
+    if letzter and (datetime.now() - datetime.fromisoformat(letzter)).total_seconds() < OTP_RESEND_SEKUNDEN:
+        return JSONResponse(
+            {"error": "Es wurde gerade ein Code gesendet. Bitte kurz warten."}, status_code=429)
+
+    code = f"{random.randint(0, 999999):06d}"
+    gueltig_bis = (datetime.now() + timedelta(minutes=OTP_TTL_MIN)).isoformat(timespec="seconds")
+    db.create_kurzanfrage(thema, text, email, code, ip, gueltig_bis)
+    try:
+        await asyncio.get_running_loop().run_in_executor(
+            None, offer.send_kurzanfrage_code, email, code, OTP_TTL_MIN)
+    except Exception as e:  # noqa: BLE001
+        logger.error("Kurzanfrage-Code-Mail fehlgeschlagen: %s", e)
+        return JSONResponse(
+            {"error": "Der Code konnte nicht versendet werden. Bitte später erneut versuchen."},
+            status_code=502,
+        )
+    return JSONResponse({"ok": True})
+
+
+@app.post("/kurzanfrage/bestaetigen")
+async def kurzanfrage_bestaetigen(email: str = Form(""), code: str = Form("")):
+    """Prüft den Code und leitet die Kurzanfrage an Ralf weiter."""
+    email = email.strip().lower()
+    code = code.strip()
+    anfrage = db.get_offene_kurzanfrage(email)
+    if anfrage is None:
+        return JSONResponse(
+            {"error": "Kein gültiger Code. Bitte fordern Sie einen neuen an."}, status_code=400)
+    if anfrage["gueltig_bis"] < db._now():
+        return JSONResponse(
+            {"error": "Der Code ist abgelaufen. Bitte fordern Sie einen neuen an."}, status_code=400)
+    if anfrage["versuche"] >= OTP_MAX_VERSUCHE:
+        return JSONResponse(
+            {"error": "Zu viele Fehlversuche. Bitte fordern Sie einen neuen Code an."},
+            status_code=400,
+        )
+    if code != anfrage["code"]:
+        db.increment_kurzanfrage_versuche(anfrage["id"])
+        rest = OTP_MAX_VERSUCHE - (anfrage["versuche"] + 1)
+        if rest <= 0:
+            return JSONResponse(
+                {"error": "Zu viele Fehlversuche. Bitte fordern Sie einen neuen Code an."},
+                status_code=400,
+            )
+        return JSONResponse(
+            {"error": f"Falscher Code. Noch {rest} Versuch(e)."}, status_code=400)
+
+    # Erst senden, dann als bestätigt markieren: scheitert SMTP, bleibt der Code gültig
+    # und der Besucher kann es gleich nochmals versuchen, ohne alles neu einzugeben.
+    try:
+        await asyncio.get_running_loop().run_in_executor(
+            None, offer.send_kurzanfrage_an_ralf, anfrage["thema"], anfrage["text"], email)
+    except Exception as e:  # noqa: BLE001
+        logger.error("Kurzanfrage an Ralf fehlgeschlagen: %s", e)
+        return JSONResponse(
+            {"error": "Die Anfrage konnte nicht übermittelt werden. Bitte gleich nochmals versuchen."},
+            status_code=502,
+        )
+    db.mark_kurzanfrage_bestaetigt(anfrage["id"])
+    return JSONResponse({"ok": True})
 
 
 @app.post("/chat")
