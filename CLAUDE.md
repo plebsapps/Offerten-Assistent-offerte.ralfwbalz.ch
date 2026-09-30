@@ -147,6 +147,17 @@ Keine Tests/Linter konfiguriert.
   gibt es das bestehende `limit`-Event (Stopp). Erreicht eines die **Soft**-Schwelle
   (`soft_turns`/`soft_tokens`), läuft der Agent mit `wind_down=True` und leitet hörbar zum
   Abschluss über. Token werden in `agent.stream_reply` aus `final.usage` summiert.
+- **Button „Gespräch beenden“** (`#endBtn` unter dem Chat, `static/js/app.js`): nach einer
+  Bestätigung schickt der Browser „Ich möchte das Gespräch jetzt beenden.“ mit `beenden: true`
+  an `POST /chat`. Der Server lehnt das für ein noch nicht begonnenes Gespräch ab, antwortet bei
+  schon vorhandener Offerte nur mit `done` (höchstens eine pro Gespräch) und lässt es auch nach
+  erreichtem Hard-Limit noch eine Runde zu. `agent.stream_reply(..., beenden=True)` hängt
+  `BEENDEN_HINWEIS` an und **erzwingt** in Runde 1 `offerte_erstellen` per `tool_choice`. Bei
+  Claude läuft das ohne Thinking – erzwungenes Werkzeug und Thinking vertragen sich nicht, und die
+  Folgerunde müsste sonst Thinking-Blöcke vorweisen. Bei OpenAI meldet ein erzwungener Aufruf
+  `finish_reason = "stop"`, darum prüft `agent_openai` nur, ob `tool_calls` vorliegen. Danach
+  läuft der normale Abschluss (Overlay, Countdown). Ohne eigene Kundennachricht führt der Button
+  nur zur Homepage.
 - **Abschluss-Sprung**: nach `offer_created` zeigt `static/js/app.js` ein Overlay (`index.html`)
   mit ~8-s-Countdown und Button und leitet auf `HOMEPAGE_URL` weiter.
 

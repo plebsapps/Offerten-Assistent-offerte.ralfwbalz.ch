@@ -24,6 +24,7 @@
     overlayCount: document.getElementById("overlayCount"),
     overlayBtn: document.getElementById("overlayBtn"),
     micHint: document.getElementById("micHint"),
+    endBtn: document.getElementById("endBtn"),
   };
 
   const homepageUrl = document.body.dataset.homepage || "https://ralfwbalz.ch";
@@ -37,6 +38,7 @@
   let mediaRecorder = null;
   let chunks = [];
   let recording = false;
+  let aufnahmeVerwerfen = false;  // beim Beenden: laufende Aufnahme nicht mehr senden
 
   if (!canRecord) {
     el.banner.classList.remove("hidden");
@@ -51,6 +53,7 @@
     mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach((tr) => tr.stop());
+      if (aufnahmeVerwerfen) return;
       const type = mediaRecorder.mimeType || "audio/webm";
       await transcribeAndSend(new Blob(chunks, { type }), type);
     };
@@ -244,13 +247,16 @@
   }
 
   let sending = false;
+  let kundenNachrichten = 0;  // ohne eigene Nachricht gibt es nichts zusammenzufassen
 
-  async function sendMessage(text) {
+  async function sendMessage(text, beenden = false) {
     text = (text || "").trim();
     if (!text || sending) return;
     sending = true;
+    el.endBtn.disabled = true;
+    if (!beenden) kundenNachrichten += 1;
     el.textInput.value = "";
-    el.statusHint.textContent = "";
+    el.statusHint.textContent = beenden ? "Offerte wird erstellt …" : "";
     addBubble("user", text);
 
     const assistant = addBubble("assistant", "");
@@ -273,7 +279,7 @@
       const resp = await fetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId, text, website: el.website.value }),
+        body: JSON.stringify({ session_id: sessionId, text, website: el.website.value, beenden }),
       });
 
       if (!resp.ok) {
@@ -281,6 +287,7 @@
         assistant.textContent = err.error || "Es ist ein Fehler aufgetreten.";
         assistant.classList.remove("pending");
         sending = false;
+        el.endBtn.disabled = false;
         return;
       }
 
@@ -309,6 +316,10 @@
     } finally {
       assistant.classList.remove("pending");
       sending = false;
+      el.endBtn.disabled = offerCreated;
+      if (beenden && !offerCreated) {
+        el.statusHint.textContent = "Die Offerte konnte nicht erstellt werden – bitte nochmals versuchen.";
+      }
       // Restlichen Satz (ohne abschliessendes Satzzeichen) noch vorlesen.
       if (wantTTS && ttsBuf.trim()) enqueueSpeak(ttsBuf.trim());
       ttsBuf = "";
@@ -388,6 +399,24 @@
       playGreeting();
     }
     el.textInput.focus();
+  });
+
+  // --- Gespräch beenden ---
+  // Mit bisherigem Gesprächsstand: der Server erzwingt „offerte_erstellen“, danach läuft
+  // der gewohnte Abschluss (Overlay, Countdown). Ohne eigene Nachricht gibt es nichts
+  // zusammenzufassen – dann nur zur Homepage.
+  el.endBtn.addEventListener("click", () => {
+    if (sending || offerCreated) return;
+    if (kundenNachrichten === 0) {
+      if (!window.confirm("Gespräch beenden? Es wurde noch nichts besprochen, daher entsteht keine Offerte.")) return;
+      cancelSpeak();
+      window.location.href = homepageUrl;
+      return;
+    }
+    if (!window.confirm("Gespräch jetzt beenden?\n\nDer Assistent erstellt die Offerten-Grundlage mit dem bisherigen Stand und sendet sie an Ralf W. Balz. Offene Punkte klärt er danach persönlich mit Ihnen.")) return;
+    if (recording) { aufnahmeVerwerfen = true; stopRecording(); }
+    cancelSpeak();
+    sendMessage("Ich möchte das Gespräch jetzt beenden.", true);
   });
 
   prefetchGreeting();

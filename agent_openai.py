@@ -38,27 +38,32 @@ def _get_client() -> openai.OpenAI:
 
 
 def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
-                 kontakt: dict | None = None):
+                 kontakt: dict | None = None, beenden: bool = False):
     """Streamt die Agenten-Antwort als Event-Dicts (gleiche Schnittstelle wie agent)."""
-    system_prompt = agent.build_system_prompt(wind_down, kontakt)
+    system_prompt = agent.build_system_prompt(wind_down, kontakt, beenden)
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
     messages += [{"role": m["role"], "content": m["content"]} for m in history]
 
     final_text_parts: list[str] = []
     tokens_in = tokens_out = 0
 
-    for _ in range(agent.MAX_TOOL_ROUNDS + 1):
+    for runde in range(agent.MAX_TOOL_ROUNDS + 1):
         round_text: list[str] = []
         # tool_calls über die Chunks hinweg zusammensetzen (Index → {id, name, args}).
         tool_calls: dict[int, dict] = {}
-        finish_reason = None
 
+        # „Gespräch beenden“: in Runde 1 den Werkzeug-Aufruf erzwingen.
+        optionen: dict = {}
+        if beenden and runde == 0:
+            optionen["tool_choice"] = {"type": "function",
+                                       "function": {"name": agent.OFFER_TOOL["name"]}}
         stream = _get_client().chat.completions.create(
             model=MODEL,
             messages=messages,
             tools=[OPENAI_TOOL],
             stream=True,
             stream_options={"include_usage": True},
+            **optionen,
         )
         for chunk in stream:
             if getattr(chunk, "usage", None) is not None:
@@ -79,12 +84,12 @@ def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
                     slot["name"] = tc.function.name
                 if tc.function and tc.function.arguments:
                     slot["args"] += tc.function.arguments
-            if choice.finish_reason:
-                finish_reason = choice.finish_reason
 
         final_text_parts.extend(round_text)
 
-        if finish_reason != "tool_calls" or not tool_calls:
+        # Nicht auf finish_reason == "tool_calls" prüfen: bei erzwungenem tool_choice meldet
+        # die API "stop", obwohl ein Aufruf vorliegt.
+        if not tool_calls:
             break
 
         # Werkzeug-Aufruf(e) abarbeiten und Ergebnis zurückgeben.

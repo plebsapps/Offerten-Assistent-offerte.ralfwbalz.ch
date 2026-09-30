@@ -365,8 +365,21 @@ body {
   font-size: .88rem;
   color: var(--muted);
 }
+.controls { flex-wrap: wrap; gap: 8px; }
 .toggle { cursor: pointer; }
 .hint { color: #16a34a; }
+/* „Gespräch beenden“: sichtbar, aber zurückhaltender als der Senden-Button */
+.btn-beenden {
+  background: #fff;
+  color: var(--navy);
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: .88rem;
+  cursor: pointer;
+}
+.btn-beenden:hover { border-color: var(--navy); }
+.btn-beenden:disabled { opacity: .5; cursor: default; }
 .mic-hint {
   margin: 0;
   padding: 2px 14px 10px;

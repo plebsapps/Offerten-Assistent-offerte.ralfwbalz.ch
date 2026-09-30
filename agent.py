@@ -83,6 +83,18 @@ Sofern die Kontaktdaten (mindestens eine E-Mail-Adresse) vorliegen, rufe danach 
 danach. Stelle weiterhin höchstens eine Frage und nenne keine Preise.
 """
 
+# Wird angehängt, wenn der Kunde auf „Gespräch beenden“ geklickt hat. Der Werkzeug-Aufruf
+# selbst wird zusätzlich erzwungen (tool_choice); der Hinweis sorgt für sinnvolle Inhalte.
+BEENDEN_HINWEIS = """\
+
+WICHTIG – Der Kunde hat das Gespräch über den Button „Gespräch beenden“ beendet:
+Erstelle JETZT mit dem Werkzeug „offerte_erstellen“ die Offerten-Grundlage aus dem bisherigen
+Stand – auch wenn noch Punkte offen sind. Stelle keine Fragen mehr. Was nicht besprochen wurde,
+erfindest du nicht: lass das Feld leer bzw. die Liste leer und führe es unter „offene_punkte“
+auf. Fehlen Kontaktdaten, trage leere Zeichenketten ein. Verabschiede dich danach in ein bis
+zwei Sätzen und sage, dass Ralf die Grundlage prüft und offene Punkte persönlich klärt.
+"""
+
 OFFER_TOOL = {
     "name": "offerte_erstellen",
     "description": (
@@ -202,10 +214,14 @@ def begruessung(kontakt: dict | None = None) -> str:
             f"Erzählen Sie mir: Worum geht es bei Ihrem geplanten IT-Projekt?")
 
 
-def build_system_prompt(wind_down: bool = False, kontakt: dict | None = None) -> str:
-    """System-Prompt mit optionalem Kontakt-Hinweis und Abschluss-Hinweis (Soft-Limit)."""
+def build_system_prompt(wind_down: bool = False, kontakt: dict | None = None,
+                        beenden: bool = False) -> str:
+    """System-Prompt mit optionalem Kontakt-Hinweis und Abschluss-Hinweis (Soft-Limit
+    bzw. Button „Gespräch beenden“)."""
     prompt = SYSTEM_PROMPT + _kontakt_hinweis(kontakt)
-    if wind_down:
+    if beenden:
+        prompt += BEENDEN_HINWEIS
+    elif wind_down:
         prompt += WIND_DOWN_HINWEIS
     return prompt
 
@@ -221,7 +237,7 @@ def _get_client() -> anthropic.Anthropic:
 
 
 def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
-                 kontakt: dict | None = None):
+                 kontakt: dict | None = None, beenden: bool = False):
     """Dispatcher: streamt die Agenten-Antwort über den eingestellten KI-Anbieter.
 
     'claude' (Default, Anthropic) oder 'openai' (ChatGPT). Beide liefern dieselbe
@@ -229,6 +245,9 @@ def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
 
     kontakt: optionale Empfängerdaten (anrede/name/email) aus dem Einladungslink, damit
     der Agent persönlich anspricht und nicht erneut nach der E-Mail fragt.
+
+    beenden: Kunde hat „Gespräch beenden“ geklickt – die erste Runde erzwingt den Aufruf
+    von „offerte_erstellen“ mit dem bisherigen Stand.
 
     Yields: {"type": "token", "text": ...} | {"type": "offer_created"} |
             {"type": "done"} | {"type": "error", "message": ...}
@@ -244,13 +263,15 @@ def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
 
     if settings.ki_anbieter() == "openai":
         import agent_openai  # lazy: vermeidet Zirkelbezug beim Import
-        yield from agent_openai.stream_reply(session_id, history, wind_down=wind_down, kontakt=kontakt)
+        yield from agent_openai.stream_reply(session_id, history, wind_down=wind_down,
+                                             kontakt=kontakt, beenden=beenden)
     else:
-        yield from _stream_reply_claude(session_id, history, wind_down=wind_down, kontakt=kontakt)
+        yield from _stream_reply_claude(session_id, history, wind_down=wind_down,
+                                        kontakt=kontakt, beenden=beenden)
 
 
 def _stream_reply_claude(session_id: str, history: list[dict], wind_down: bool = False,
-                         kontakt: dict | None = None):
+                         kontakt: dict | None = None, beenden: bool = False):
     """Streamt die Agenten-Antwort von Claude als Event-Dicts.
 
     history: Liste von {role, content}. Persistiert am Ende die Assistenz-Antwort und
@@ -261,19 +282,28 @@ def _stream_reply_claude(session_id: str, history: list[dict], wind_down: bool =
     """
     messages: list[dict] = [{"role": m["role"], "content": m["content"]} for m in history]
     final_text_parts: list[str] = []
-    system_prompt = build_system_prompt(wind_down, kontakt)
+    system_prompt = build_system_prompt(wind_down, kontakt, beenden)
     tokens_in = tokens_out = 0
 
-    for _ in range(MAX_TOOL_ROUNDS + 1):
+    for runde in range(MAX_TOOL_ROUNDS + 1):
         round_text: list[str] = []
+        optionen: dict = {}
+        if beenden:
+            # Erzwungener Werkzeug-Aufruf verträgt sich nicht mit Thinking – und die
+            # Folgerunden müssten sonst Thinking-Blöcke zu dieser Runde vorweisen. Beim
+            # Beenden daher durchgehend ohne Thinking; nur Runde 1 erzwingt das Werkzeug.
+            if runde == 0:
+                optionen["tool_choice"] = {"type": "tool", "name": OFFER_TOOL["name"]}
+        else:
+            optionen["thinking"] = {"type": "adaptive"}
+            optionen["output_config"] = {"effort": "medium"}
         with _get_client().messages.stream(
             model=MODEL,
             max_tokens=16000,
             system=system_prompt,
-            thinking={"type": "adaptive"},
-            output_config={"effort": "medium"},
             tools=[OFFER_TOOL],
             messages=messages,
+            **optionen,
         ) as stream:
             for text in stream.text_stream:
                 round_text.append(text)

@@ -518,6 +518,8 @@ async def chat(request: Request):
     session_id = (data.get("session_id") or "").strip()
     text = (data.get("text") or "").strip()
     honeypot = (data.get("website") or "").strip()
+    # Button „Gespräch beenden“: Offerte mit dem bisherigen Stand erzwingen.
+    beenden = data.get("beenden") is True
 
     # Honeypot: still als Erfolg quittieren, aber nichts tun.
     if honeypot:
@@ -531,6 +533,15 @@ async def chat(request: Request):
 
     ip = _client_ip(request)
     is_new = not db.session_exists(session_id)
+
+    if beenden:
+        # Beenden setzt ein laufendes Gespräch voraus (sonst gibt es nichts zusammenzufassen)
+        # und erzeugt höchstens eine Offerte pro Gespräch.
+        if is_new:
+            return JSONResponse({"error": "Es läuft noch kein Gespräch."}, status_code=400)
+        if db.get_offer_by_session(session_id):
+            return StreamingResponse(_single_event({"type": "done"}),
+                                     media_type="text/event-stream")
 
     if is_new:
         if db.count_recent_sessions_for_ip(ip, RATE_WINDOW_SECONDS) >= MAX_SESSIONS_PER_IP:
@@ -549,7 +560,9 @@ async def chat(request: Request):
     turns = db.count_messages(session_id, "user")
     tokens_in, tokens_out = db.get_session_usage(session_id)
     tokens_gesamt = tokens_in + tokens_out
-    if turns >= settings.max_turns() or tokens_gesamt >= settings.max_tokens():
+    # Beenden darf auch nach erreichtem Hard-Limit noch eine Runde: sonst ginge ein langes
+    # Gespräch, das am Limit abbricht, ohne Offerte verloren.
+    if not beenden and (turns >= settings.max_turns() or tokens_gesamt >= settings.max_tokens()):
         return StreamingResponse(
             _single_event({
                 "type": "limit",
@@ -566,7 +579,8 @@ async def chat(request: Request):
 
     def event_stream():
         try:
-            for ev in agent.stream_reply(session_id, history, wind_down=wind_down, kontakt=kontakt):
+            for ev in agent.stream_reply(session_id, history, wind_down=wind_down,
+                                         kontakt=kontakt, beenden=beenden):
                 yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
         except Exception as e:  # noqa: BLE001
             logger.error("Chat-Stream-Fehler: %s", e)
