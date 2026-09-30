@@ -8,7 +8,9 @@ Freigabe-Endpunkt, über den Ralf die fertige Offerte an den Auftraggeber freigi
 import os
 import json
 import asyncio
-import random
+import re
+import hmac
+import secrets
 import logging
 from datetime import datetime, timedelta
 
@@ -170,9 +172,18 @@ def _zugang_erlaubt(request: Request) -> bool:
 
 
 def _client_ip(request: Request) -> str:
+    """Echte Client-IP hinter nginx.
+
+    X-Real-IP zuerst: nginx setzt es auf $remote_addr und überschreibt dabei, was der
+    Client mitschickt. Beim X-Forwarded-For hängt nginx ($proxy_add_x_forwarded_for) nur
+    hinten an – der **erste** Eintrag stammt vom Client und ist frei wählbar, damit liesse
+    sich jedes Limit pro IP umgehen. Darum dort den letzten Eintrag nehmen."""
+    ip = request.headers.get("x-real-ip")
+    if ip:
+        return ip.strip()
     fwd = request.headers.get("x-forwarded-for")
     if fwd:
-        return fwd.split(",")[0].strip()
+        return fwd.split(",")[-1].strip()
     return request.client.host if request.client else "unbekannt"
 
 
@@ -287,8 +298,23 @@ def _selbst_zugang_offen() -> bool:
     return settings.zugangsmodus() == "einladung" and settings.selbst_zugang_aktiv()
 
 
+# Bewusst eng: keine Leerzeichen, Zeilenumbrüche, Anführungszeichen oder spitzen Klammern.
+# Die Adresse landet in Mail-Kopfzeilen (To/Reply-To) und im SMTP-Dialog; Pythons
+# email-Paket würde eine eingeschleuste Kopfzeile zwar abweisen, aber erst beim Senden.
+_EMAIL_MUSTER = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}")
+
+
 def _email_plausibel(email: str) -> bool:
-    return "@" in email and "." in email.split("@")[-1] and len(email) <= 254
+    return len(email) <= 254 and _EMAIL_MUSTER.fullmatch(email) is not None
+
+
+def _neuer_code() -> str:
+    """6-stelliger Code aus dem kryptografischen Zufallsgenerator (nicht vorhersagbar)."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def _code_stimmt(eingabe: str, erwartet: str) -> bool:
+    return hmac.compare_digest(eingabe.encode(), erwartet.encode())
 
 
 @app.post("/zugang/code")
@@ -318,7 +344,7 @@ async def zugang_code(request: Request, anrede: str = Form(""), name: str = Form
         return JSONResponse(
             {"error": "Es wurde gerade ein Code gesendet. Bitte kurz warten."}, status_code=429)
 
-    code = f"{random.randint(0, 999999):06d}"
+    code = _neuer_code()
     gueltig_bis = (datetime.now() + timedelta(minutes=OTP_TTL_MIN)).isoformat(timespec="seconds")
     db.create_zugang_code(email, anrede, name, code, ip, gueltig_bis)
     try:
@@ -353,7 +379,7 @@ async def zugang_verify(request: Request, email: str = Form(""), code: str = For
             {"error": "Zu viele Fehlversuche. Bitte fordern Sie einen neuen Code an."},
             status_code=400,
         )
-    if code != eintrag["code"]:
+    if not _code_stimmt(code, eintrag["code"]):
         db.increment_zugang_code_versuche(eintrag["id"])
         rest = OTP_MAX_VERSUCHE - (eintrag["versuche"] + 1)
         if rest <= 0:
@@ -428,7 +454,7 @@ async def kurzanfrage_code(request: Request, thema: str = Form(""), text: str = 
         return JSONResponse(
             {"error": "Es wurde gerade ein Code gesendet. Bitte kurz warten."}, status_code=429)
 
-    code = f"{random.randint(0, 999999):06d}"
+    code = _neuer_code()
     gueltig_bis = (datetime.now() + timedelta(minutes=OTP_TTL_MIN)).isoformat(timespec="seconds")
     db.create_kurzanfrage(thema, text, email, code, ip, gueltig_bis)
     try:
@@ -460,7 +486,7 @@ async def kurzanfrage_bestaetigen(email: str = Form(""), code: str = Form("")):
             {"error": "Zu viele Fehlversuche. Bitte fordern Sie einen neuen Code an."},
             status_code=400,
         )
-    if code != anfrage["code"]:
+    if not _code_stimmt(code, anfrage["code"]):
         db.increment_kurzanfrage_versuche(anfrage["id"])
         rest = OTP_MAX_VERSUCHE - (anfrage["versuche"] + 1)
         if rest <= 0:
