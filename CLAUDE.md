@@ -166,7 +166,9 @@ Keine Tests/Linter konfiguriert.
   Gesprächsliste, im Transkript und in der Mail an Ralf. Eine neue Anzeige heisst: Eintrag in
   `themen.py`, sonst nichts. Das Impressum nennt das Thema beim Sitzungs-Cookie – das Cookie
   entsteht damit schon beim ersten Aufruf über eine Anzeige. Die Besucherstatistik auf
-  ralfwbalz.ch sieht `adgroup` nicht (der Import schneidet den Query-String ab).
+  ralfwbalz.ch liest `adgroup` aus dem nginx-Log dieses vhosts und weist Besucher je Anzeige
+  aus; die Anzeigenamen dort (`STATISTIK_ANZEIGEN` in `ralfwbalz/main.py`) sind eine Kopie der
+  Titel hier – bei einer neuen Anzeige dort nachtragen, sonst erscheint nur der Schlüssel.
 - **Chat-Startseite** (`index.html`, vor dem Start): fette Zeile „100 % unverbindlich für Sie
   und mich“ und neben „Gespräch starten“ der Button „Gespräch doch nicht starten“. Er schickt
   `POST /zugang/zuruecksetzen`: das entfernt `zugang_ok`, `selbst_verifiziert` und `kontakt` aus
