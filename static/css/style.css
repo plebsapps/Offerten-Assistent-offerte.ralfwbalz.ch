@@ -135,18 +135,19 @@ body {
 .nav-wrap { position: relative; }
 
 /* ----------------------------------------------------------- Footer -------------- */
+/* Fussleiste: Werte 1:1 aus ralfwbalz/static/css/style.css (gemeinsames templates/_footer.html).
+   Zusätzlich nur, was dort aus dem globalen Reset bzw. body kommt (margin, line-height,
+   display) und flex-shrink für das Spalten-Layout dieser Seite. */
 .footer {
   background: var(--navy-dark);
-  padding: 32px 0;
+  padding: 32px 24px;
   text-align: center;
+  line-height: 1.6;
   flex-shrink: 0;
 }
 .footer-inner {
-  /* Gleiche Breite und Seitenränder wie .wrap, damit Logo und Links bündig
-     unter dem Seiteninhalt stehen. */
-  max-width: 760px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 0 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -159,17 +160,13 @@ body {
   gap: 10px;
 }
 .footer-logo {
+  display: block;
   width: 30px;
   height: 30px;
-  opacity: .6;
+  opacity: 0.6;
   flex-shrink: 0;
 }
-.footer-copy {
-  color: rgba(255,255,255,.4);
-  font-size: .85rem;
-  margin: 0;
-  text-align: left;
-}
+.footer-copy { color: rgba(255,255,255,.4); font-size: .85rem; margin: 0; }
 .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 24px; }
 .footer-links a {
   color: var(--white);
@@ -180,6 +177,9 @@ body {
   transition: color var(--transition);
 }
 .footer-links a:hover { color: #93C5FD; }
+@media (max-width: 600px) {
+  .footer-inner { flex-direction: column; text-align: center; }
+}
 
 .wrap {
   width: 100%;
@@ -656,10 +656,6 @@ body {
     padding: 0 14px;
   }
   .nav-logo-canvas { width: 76px; height: 76px; }
-
-  .footer { padding: 24px 0; }
-  .footer-inner { flex-direction: column; text-align: center; padding: 0 12px; }
-  .footer-copy { text-align: center; }
 
   .wrap {
     padding: 16px 12px 28px;

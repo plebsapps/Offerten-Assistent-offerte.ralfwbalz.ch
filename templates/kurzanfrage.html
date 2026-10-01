@@ -17,7 +17,7 @@
   <meta property="og:image"       content="https://offerte.ralfwbalz.ch/static/img/logo-ralfwbalz.svg">
   <meta property="og:locale"      content="de_CH">
 
-  <link rel="stylesheet" href="/static/css/style.css?v=19">
+  <link rel="stylesheet" href="/static/css/style.css?v=20">
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -88,19 +88,7 @@
     </section>
   </main>
 
-  <footer class="footer">
-    <div class="footer-inner">
-      <div class="footer-brand">
-        <img src="/static/img/logo-ralfwbalz.svg" alt="Logo Ralf W. Balz" class="footer-logo">
-        <p class="footer-copy">&copy; 2026 Ralf W. Balz – IT Beratung, Datenbanken, Webanwendungen und Mobile Apps für KMU</p>
-      </div>
-      <nav class="footer-links">
-        <a href="/impressum">Datenschutz &amp; Impressum</a>
-        <a href="https://www.linkedin.com/in/ralf-w-balz-72b304207/" target="_blank" rel="noopener">LinkedIn</a>
-        <a href="/admin/login">Login</a>
-      </nav>
-    </div>
-  </footer>
+  {% include "_footer.html" %}
   <script>
     const formCode = document.getElementById("form-code");
     const formVerify = document.getElementById("form-verify");
@@ -160,7 +148,7 @@
       setStatus("", true);
     });
   </script>
-  <script src="/static/js/einwilligung.js"></script>
+  <script src="/static/js/einwilligung.js?v=2"></script>
   <script src="/static/js/logo.js"></script>
 </body>
 </html>

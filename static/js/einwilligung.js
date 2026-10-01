@@ -56,12 +56,8 @@
   }
 
   if (!einwilligung()) banner();
-  const fussLinks = document.querySelector(".footer-links");
-  if (fussLinks) {
-    const link = document.createElement("a");
-    link.href = "#";
-    link.textContent = "Cookie-Einstellungen";
-    link.addEventListener("click", e => { e.preventDefault(); banner(); });
-    fussLinks.appendChild(link);
-  }
+  // Der Link steht fest in templates/_footer.html und zeigt ohne JavaScript bzw. auf Seiten
+  // ohne Google-Tag auf den Cookie-Abschnitt im Impressum; hier öffnet er das Banner.
+  const link = document.querySelector("[data-cookie-einstellungen]");
+  if (link) link.addEventListener("click", e => { e.preventDefault(); banner(); });
 })();

@@ -195,10 +195,8 @@ tragen die **gleiche Navigation wie ralfwbalz.ch**: weisse Leiste, animiertes Ca
 (`aria-current="page"`) und „Kontakt" als blauer CTA, dazu Hamburger und `.nav-mobile`-
 Schublade (Toggle ebenfalls in `logo.js`). Anders als auf der Hauptseite steht die Leiste
 **im Fluss statt `position: fixed`** – die Chat-Seite rechnet mit `.messages { height: 56dvh }`
-und einer klebenden `.composer`. Darunter liegt ein Footer im Stil der Hauptseite mit
-„Datenschutz & Impressum" und dem **Login** in den Admin-Bereich; in der Kopfzeile gibt es
-keinen Login mehr. Das Markup ist wie bisher je Seite dupliziert (kein `extends` auf der
-öffentlichen Seite), eine CSS-Version (`?v=…`) also in **allen fünf** Besucher-Templates zu
+und einer klebenden `.composer`. Das Markup der Kopfzeile ist wie bisher je Seite dupliziert
+(kein `extends` auf der öffentlichen Seite), eine CSS-Version (`?v=…`) also in **allen fünf** Besucher-Templates zu
 erhöhen (die beiden Admin-Templates führen eine eigene Nummer).
 
 Alle Links auf die Hauptseite zeigen auf die **nackte** Domain, nicht auf `www.` – dort
@@ -206,6 +204,25 @@ leitet nginx seit dem 28.09.2026 mit 301 um, und kanonisch ist `ralfwbalz.ch` (s
 deren sitemap.xml, robots.txt und canonical-Tags). Nicht auf `www.` zurückstellen: das wäre
 auf jedem Klick ein unnötiger Umweg. `HOMEPAGE_URL` (Default und `.env`) zeigt ebenfalls
 dorthin.
+
+### Fussleiste (identisch mit ralfwbalz.ch)
+`templates/_footer.html` ist eine **Byte-für-Byte-Kopie** von
+`~/ralfwbalz/templates/_footer.html` und wird von allen fünf Besucherseiten per `include`
+eingebunden: Logo, „© 2026 Ralf W. Balz, Individualsoftware und Prozessdigitalisierung für
+KMU", dann Bücher, Impressum, Datenschutz, LinkedIn, Cookie-Einstellungen. **Vorlage ist
+ralfwbalz** – dort ändern, dann `cp ~/ralfwbalz/templates/_footer.html ~/offerte/templates/`,
+beide Container neu bauen, mit `diff` prüfen. Der einzige Unterschied der Projekte, der
+Logo-Pfad, kommt als Jinja-Global `fuss_logo` aus `main.py`. „Impressum" und „Datenschutz"
+sind relativ und führen bewusst auf das **eigene** Impressum (`#datenschutz` sitzt an der
+ersten Datenschutz-Überschrift), „Bücher" zeigt absolut auf ralfwbalz.ch.
+
+Die Footer-Regeln in `style.css` haben dieselben Werte wie auf der Hauptseite (1100 px breit,
+Umbruch in eine Spalte ab 600 px); zusätzlich stehen nur `margin: 0`, `line-height: 1.6` und
+`display: block`, die dort aus dem globalen Reset kommen, und `flex-shrink: 0` für das
+Spalten-Layout hier. Es gibt **keinen Login-Link** mehr im Footer – der Admin-Bereich ist nur
+noch direkt über `/admin/login` erreichbar. „Cookie-Einstellungen" steht fest im Markup
+(`data-cookie-einstellungen`, `href="/impressum#google-ads"`): `einwilligung.js` bindet daran
+das Banner, auf Seiten ohne Google-Tag (`freigabe.html`) führt der Link ins Impressum.
 
 ### Google-Ads-Tag & Einwilligungs-Banner
 Das Google-Ads-Tag (`AW-18481174898`, Konstante `GOOGLE_ADS_ID` in `main.py`) steht in

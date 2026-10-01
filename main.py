@@ -92,6 +92,8 @@ HOMEPAGE_URL = os.environ.get("HOMEPAGE_URL", "https://ralfwbalz.ch")
 # Wert allen Templates zur Verfügung, auch impressum/einladung/freigabe, die
 # sonst keinen eigenen Kontext dafür bekämen.
 templates.env.globals["homepage_url"] = HOMEPAGE_URL
+# Logo der gemeinsamen Fussleiste (templates/_footer.html, Kopie aus ralfwbalz/).
+templates.env.globals["fuss_logo"] = "/static/img/logo-ralfwbalz.svg"
 
 # Google Ads: das Tag steht in templates/_google_tag.html und lädt erst nach
 # der Zustimmung im Banner (static/js/einwilligung.js). GOOGLE_ADS_KONVERSION ist

@@ -7,7 +7,7 @@
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://offerte.ralfwbalz.ch/impressum">
   <title>Datenschutz &amp; Impressum – Offerten-Assistent</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=19">
+  <link rel="stylesheet" href="/static/css/style.css?v=20">
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -50,7 +50,7 @@
       <h2 style="color:#1B2A4A;font-size:1.1rem">Verantwortlich</h2>
       <p>Ralf W. Balz, Schweiz &middot; <a href="https://ralfwbalz.ch" style="color:#3B82F6">ralfwbalz.ch</a></p>
 
-      <h2 style="color:#1B2A4A;font-size:1.1rem">Sprachein- und -ausgabe</h2>
+      <h2 id="datenschutz" style="color:#1B2A4A;font-size:1.1rem">Sprachein- und -ausgabe</h2>
       <p>
         Wenn Sie das Mikrofon verwenden, nimmt Ihr Browser die Sprache auf und sendet die
         Aufnahme an diesen Server. Von dort wird sie zur Umwandlung in Text an OpenAI
@@ -131,20 +131,8 @@
       <p style="margin-top:24px"><a href="/" style="color:#3B82F6">&larr; Zurück zum Assistenten</a></p>
     </div>
   </main>
-  <footer class="footer">
-    <div class="footer-inner">
-      <div class="footer-brand">
-        <img src="/static/img/logo-ralfwbalz.svg" alt="Logo Ralf W. Balz" class="footer-logo">
-        <p class="footer-copy">&copy; 2026 Ralf W. Balz – IT Beratung, Datenbanken, Webanwendungen und Mobile Apps für KMU</p>
-      </div>
-      <nav class="footer-links">
-        <a href="/impressum">Datenschutz &amp; Impressum</a>
-        <a href="https://www.linkedin.com/in/ralf-w-balz-72b304207/" target="_blank" rel="noopener">LinkedIn</a>
-        <a href="/admin/login">Login</a>
-      </nav>
-    </div>
-  </footer>
-  <script src="/static/js/einwilligung.js"></script>
+  {% include "_footer.html" %}
+  <script src="/static/js/einwilligung.js?v=2"></script>
   <script src="/static/js/logo.js"></script>
 </body>
 </html>
