@@ -1,13 +1,12 @@
 // Google Ads: Einwilligungs-Banner, Widerruf und Conversion.
 // Nur auf Seiten mit templates/_google_tag.html (dort entsteht window.googleAds).
-// Ohne Zustimmung wird gtag.js gar nicht geladen; die Wahl bleibt in
-// localStorage, der Footer-Link "Cookie-Einstellungen" öffnet das Banner wieder.
+// Ohne Zustimmung wird gtag.js gar nicht geladen; die Wahl liegt in einem Cookie auf
+// ralfwbalz.ch und gilt damit auch für ralfwbalz.ch selbst (Lesen und Schreiben in
+// _google_tag.html). Der Footer-Link "Cookie-Einstellungen" öffnet das Banner wieder.
 (function () {
   if (!window.googleAds) return;
 
-  function einwilligung() {
-    try { return localStorage.getItem("werbe_einwilligung"); } catch (e) { return null; }
-  }
+  const einwilligung = window.googleAds.einwilligung;
 
   // Aufruf aus app.js, sobald der Assistent eine Offerte erstellt hat.
   window.googleAdsKonversion = function () {
@@ -16,20 +15,21 @@
   };
 
   function setzen(wert) {
-    const vorher = einwilligung();
-    try { localStorage.setItem("werbe_einwilligung", wert); } catch (e) { /* dann eben nur für diesen Aufruf */ }
+    window.googleAds.einwilligungMerken(wert);
     document.getElementById("einwilligung")?.remove();
     if (wert === "ja") {
       window.googleAdsLaden();
-    } else if (vorher === "ja") {
-      // Widerruf: Google-Cookies entfernen und ohne geladenes gtag.js neu starten
+    } else {
+      // Ablehnung oder Widerruf: Google-Cookies entfernen (gtag setzt sie auf .ralfwbalz.ch,
+      // also für beide Websites) und, falls gtag.js schon läuft, ohne es neu starten
       document.cookie.split(";").map(c => c.split("=")[0].trim())
         .filter(n => n.startsWith("_gcl") || n.startsWith("_ga"))
         .forEach(n => {
           document.cookie = n + "=; Max-Age=0; path=/";
           document.cookie = n + "=; Max-Age=0; path=/; domain=." + location.hostname;
+          document.cookie = n + "=; Max-Age=0; path=/; domain=.ralfwbalz.ch";
         });
-      location.reload();
+      if (window.googleAds.geladen) location.reload();
     }
   }
 
@@ -42,8 +42,9 @@
     b.setAttribute("aria-label", "Einwilligung zu Werbe-Cookies");
     b.innerHTML = `
       <p>
-        Darf diese Website Google Ads laden? Damit sehe ich, ob eine Anzeige zu
-        einer Offerte geführt hat. Google setzt dafür Cookies.
+        Dürfen ralfwbalz.ch und offerte.ralfwbalz.ch Google Ads laden? Damit sehe ich,
+        ob eine Anzeige zu einer Anfrage oder Offerte geführt hat. Google setzt dafür
+        Cookies. Ihre Wahl gilt für beide Websites.
         <a href="/impressum#google-ads">Mehr dazu</a>
       </p>
       <div class="einwilligung-knoepfe">

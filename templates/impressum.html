@@ -98,8 +98,10 @@
       <h2 style="color:#1B2A4A;font-size:1.1rem">Cookies</h2>
       <p>
         Ohne Ihre Einwilligung setzt diese Website keine Tracking- oder Werbe-Cookies.
-        Technisch notwendig sind ein Sitzungs-Cookie für den Zugang zum Assistenten und die
-        Speicherung Ihrer Wahl im Einwilligungs-Banner im lokalen Speicher Ihres Browsers.
+        Technisch notwendig sind ein Sitzungs-Cookie für den Zugang zum Assistenten und das
+        Cookie <code>werbe_einwilligung</code>, das Ihre Wahl im Einwilligungs-Banner für
+        12 Monate festhält. Es gilt für ralfwbalz.ch und offerte.ralfwbalz.ch gemeinsam,
+        damit Sie nur einmal gefragt werden.
       </p>
 
       <h2 id="google-ads" style="color:#1B2A4A;font-size:1.1rem">Google Ads (Conversion-Tracking)</h2>
@@ -111,11 +113,12 @@
       </p>
       <ul>
         <li>Das Google-Tag wird <strong>erst nach Ihrer Zustimmung</strong> im Banner geladen. Lehnen Sie ab, wird keine Verbindung zu Google aufgebaut.</li>
+        <li>Ihre Wahl gilt für ralfwbalz.ch und offerte.ralfwbalz.ch gemeinsam; beide Websites verwenden dasselbe Google-Tag.</li>
         <li>Nach der Zustimmung setzt Google Cookies (z.&nbsp;B. <code>_gcl_au</code>) und erhält unter anderem Ihre IP-Adresse, Browserdaten, die besuchte Seite und die Information, dass eine Offerte erstellt wurde. Gesprächsinhalt und Kontaktdaten werden nicht an Google übermittelt.</li>
         <li>Zweck: Messung des Erfolgs von Werbeanzeigen</li>
         <li>Rechtsgrundlage: Ihre Einwilligung (Art. 6 Abs. 1 lit. a DSGVO)</li>
         <li>Speicherdauer: Die Cookies von Google laufen nach höchstens 90 Tagen ab.</li>
-        <li>Widerruf: jederzeit über den Link <em>Cookie-Einstellungen</em> in der Fusszeile.</li>
+        <li>Widerruf: jederzeit über den Link <em>Cookie-Einstellungen</em> in der Fusszeile, mit Wirkung für beide Websites.</li>
       </ul>
       <p>
         Weitere Informationen:
@@ -132,7 +135,7 @@
     </div>
   </main>
   {% include "_footer.html" %}
-  <script src="/static/js/einwilligung.js?v=2"></script>
+  <script src="/static/js/einwilligung.js?v=3"></script>
   <script src="/static/js/logo.js"></script>
 </body>
 </html>

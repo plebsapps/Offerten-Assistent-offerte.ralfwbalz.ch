@@ -232,10 +232,17 @@ Auftraggeber, keine Anzeigen-Zielseite) und nicht im Admin. Dasselbe Tag, dassel
 und dasselbe Banner wie auf ralfwbalz.ch, aber bewusst als eigene Kopie.
 
 Consent Mode im **Basis-Modus**: `gtag.js` wird erst nach „Zustimmen" geladen, eine Ablehnung
-heisst also gar keine Anfrage an Google. Die Wahl liegt in `localStorage`
-(`werbe_einwilligung` = `ja`/`nein`), pro Domain – wer auf ralfwbalz.ch zugestimmt hat, wird
-hier erneut gefragt. Banner, Footer-Link „Cookie-Einstellungen" (Widerruf: löscht
-`_gcl*`/`_ga*` und lädt neu) und `window.googleAdsKonversion()` liegen in
+heisst also gar keine Anfrage an Google. Die Wahl liegt im Cookie `werbe_einwilligung`
+(`ja`/`nein`, 12 Monate, `Domain=ralfwbalz.ch`) und gilt damit **gemeinsam mit ralfwbalz.ch** –
+wer dort gewählt hat, wird hier nicht erneut gefragt. Der Bannertext nennt deshalb beide
+Domains und muss mit `ralfwbalz/static/js/main.js` übereinstimmen. Lesen und Schreiben stehen
+in `_google_tag.html` (`googleAds.einwilligung()` / `.einwilligungMerken()`), das bis auf den
+Kommentar mit der Kopie in `ralfwbalz/` identisch ist; `Domain` wird nur auf dem echten Host
+gesetzt, lokal bleibt es ein Host-Cookie. Bis 01.10.2026 lag die Wahl pro Domain in
+`localStorage`: ein dortiges `nein` wird ins Cookie übernommen (und sticht ein `ja`), ein `ja`
+verfällt, weil es nur für eine Website gegeben wurde. Banner, Footer-Link
+„Cookie-Einstellungen" (Widerruf: löscht `_gcl*`/`_ga*`, auch auf `.ralfwbalz.ch`, wo gtag
+sie tatsächlich setzt, und lädt neu) und `window.googleAdsKonversion()` liegen in
 `static/js/einwilligung.js`.
 
 Die Conversion feuert in `app.js` beim Stream-Ereignis `offer_created`, nur mit Zustimmung

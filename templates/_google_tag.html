@@ -1,11 +1,35 @@
   <!-- Google tag (gtag.js), Consent Mode im Basis-Modus: gtag.js wird erst
        nach der Zustimmung im Banner geladen, vorher geht nichts an Google.
-       Die Wahl liegt in localStorage (werbe_einwilligung = ja|nein), das
+       Die Wahl liegt im Cookie werbe_einwilligung (ja|nein) auf ralfwbalz.ch und
+       gilt damit für ralfwbalz.ch und offerte.ralfwbalz.ch gemeinsam; das
        Banner selbst baut static/js/einwilligung.js. -->
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     window.googleAds = { id: {{ google_ads_id|tojson }}, konversion: {{ google_ads_konversion|tojson }} };
+    window.googleAds.einwilligungMerken = function (wert) {
+      // Domain nur auf dem echten Host setzen, sonst verwirft der Browser das Cookie (lokal)
+      var gemeinsam = /(^|\.)ralfwbalz\.ch$/.test(location.hostname);
+      document.cookie = 'werbe_einwilligung=' + wert + '; Max-Age=31536000; Path=/; SameSite=Lax'
+        + (gemeinsam ? '; Domain=ralfwbalz.ch' : '')
+        + (location.protocol === 'https:' ? '; Secure' : '');
+    };
+    window.googleAds.einwilligung = function () {
+      var m = document.cookie.match(/(?:^|;\s*)werbe_einwilligung=(ja|nein)/);
+      var wahl = m ? m[1] : null;
+      // Wahl aus der Zeit vor dem gemeinsamen Cookie (localStorage, pro Domain): eine
+      // Ablehnung gilt weiter und sticht, eine Zustimmung galt nur für die eine Website
+      // und wird deshalb nicht übernommen.
+      try {
+        var alt = localStorage.getItem('werbe_einwilligung');
+        localStorage.removeItem('werbe_einwilligung');
+        if (alt === 'nein' && wahl !== 'nein') {
+          window.googleAds.einwilligungMerken('nein');
+          wahl = 'nein';
+        }
+      } catch (e) { /* ohne localStorage gibt es nichts zu übernehmen */ }
+      return wahl;
+    };
     window.googleAdsLaden = function () {
       if (window.googleAds.geladen) return;
       window.googleAds.geladen = true;
@@ -20,7 +44,5 @@
       gtag('js', new Date());
       gtag('config', window.googleAds.id);
     };
-    try {
-      if (localStorage.getItem('werbe_einwilligung') === 'ja') window.googleAdsLaden();
-    } catch (e) { /* ohne localStorage: keine Einwilligung */ }
+    if (window.googleAds.einwilligung() === 'ja') window.googleAdsLaden();
   </script>
