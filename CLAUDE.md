@@ -191,7 +191,7 @@ es, wird neu gerendert).
 Die fünf Besucherseiten (`index.html`, `einladung.html`, `kurzanfrage.html`, `impressum.html`, `freigabe.html`)
 tragen die **gleiche Navigation wie ralfwbalz.ch**: weisse Leiste, animiertes Canvas-Logo
 (`static/js/logo.js`, `#navLogo`), „Home" (`{{ homepage_url }}`, wie das Logo), Links auf
-`https://ralfwbalz.ch/#…` plus „Offerte"
+`https://ralfwbalz.ch/#…` plus „Offerte", „Kurzanfrage" (`/kurzanfrage`)
 (`aria-current="page"`) und „Kontakt" als blauer CTA, dazu Hamburger und `.nav-mobile`-
 Schublade (Toggle ebenfalls in `logo.js`). Anders als auf der Hauptseite steht die Leiste
 **im Fluss statt `position: fixed`** – die Chat-Seite rechnet mit `.messages { height: 56dvh }`

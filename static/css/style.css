@@ -68,6 +68,8 @@ body {
   margin: 0;
   padding: 0;
 }
+/* Acht Menüpunkte: knapp über dem Hamburger-Umschaltpunkt (900px) enger setzen, sonst läuft die Leiste über */
+@media (max-width: 1000px) { .nav-links { gap: 20px; } }
 .nav-links a {
   font-size: .9rem;
   font-weight: 500;
