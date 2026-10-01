@@ -190,7 +190,7 @@ es, wird neu gerendert).
 ### Kopfzeile, Navigation & Footer
 Die fünf Besucherseiten (`index.html`, `einladung.html`, `kurzanfrage.html`, `impressum.html`, `freigabe.html`)
 tragen die **gleiche Navigation wie ralfwbalz.ch**: weisse Leiste, animiertes Canvas-Logo
-(`static/js/logo.js`, `#navLogo`), „Home" (`{{ homepage_url }}`, wie das Logo), Links auf
+(`static/js/logo.js`, `#navLogo`), „Home" (`{{ homepage_url }}`; das Logo selbst führt auf `https://ralfwbalz.ch/logo`, ebenso das kleine Logo in der Fussleiste), Links auf
 `https://ralfwbalz.ch/#…` plus „Offerte", „Kurzanfrage" (`/kurzanfrage`)
 (`aria-current="page"`) und „Kontakt" als blauer CTA, dazu Hamburger und `.nav-mobile`-
 Schublade (Toggle ebenfalls in `logo.js`). Anders als auf der Hauptseite steht die Leiste
