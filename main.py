@@ -406,6 +406,19 @@ async def zugang_verify(request: Request, email: str = Form(""), code: str = For
     return JSONResponse({"ok": True, "redirect": "/"})
 
 
+@app.post("/zugang/zuruecksetzen")
+async def zugang_zuruecksetzen(request: Request):
+    """Button „Gespräch doch nicht starten“: Freischaltung verwerfen, zurück zur Zugangsseite.
+
+    Entfernt nur die Zugangs-Flags – eine Admin-Anmeldung im selben Cookie bleibt bestehen.
+    Im Modus 'oeffentlich' gibt es keine Zugangsseite (``/`` zeigt gleich wieder den Chat),
+    dort geht es stattdessen zur Hauptseite."""
+    for schluessel in ("zugang_ok", "selbst_verifiziert", "kontakt"):
+        request.session.pop(schluessel, None)
+    ziel = "/" if settings.zugangsmodus() == "einladung" else HOMEPAGE_URL
+    return RedirectResponse(url=ziel, status_code=303)
+
+
 # ------------------------------------------------------------ Kurzanfrage -----
 # Unabhängig vom Zugangsmodus erreichbar. Die Anfrage geht erst an Ralf, wenn der
 # Besucher seine E-Mail-Adresse per Code bestätigt hat; der Code schaltet den Chat

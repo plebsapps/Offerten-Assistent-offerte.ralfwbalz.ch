@@ -147,6 +147,12 @@ Keine Tests/Linter konfiguriert.
   gibt es das bestehende `limit`-Event (Stopp). Erreicht eines die **Soft**-Schwelle
   (`soft_turns`/`soft_tokens`), läuft der Agent mit `wind_down=True` und leitet hörbar zum
   Abschluss über. Token werden in `agent.stream_reply` aus `final.usage` summiert.
+- **Chat-Startseite** (`index.html`, vor dem Start): fette Zeile „100 % unverbindlich für Sie
+  und mich“ und neben „Gespräch starten“ der Button „Gespräch doch nicht starten“. Er schickt
+  `POST /zugang/zuruecksetzen`: das entfernt `zugang_ok`, `selbst_verifiziert` und `kontakt` aus
+  der Session (eine Admin-Anmeldung im selben Cookie bleibt) und leitet mit 303 auf `/`, wo dann
+  wieder `einladung.html` erscheint. Im Modus `oeffentlich` gäbe das eine Schleife (dort zeigt
+  `/` sofort wieder den Chat), darum geht es dann auf `HOMEPAGE_URL`.
 - **Button „Gespräch beenden“** (`#endBtn` unter dem Chat, `static/js/app.js`): nach einer
   Bestätigung schickt der Browser „Ich möchte das Gespräch jetzt beenden.“ mit `beenden: true`
   an `POST /chat`. Der Server lehnt das für ein noch nicht begonnenes Gespräch ab, antwortet bei
