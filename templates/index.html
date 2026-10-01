@@ -50,7 +50,7 @@
     </div>
 
     <section class="intro" id="intro">
-      <h1>Lassen Sie uns Ihr IT-Projekt planen</h1>
+      <h1>{% if thema.schluessel %}Lassen Sie uns Ihr Projekt planen:<br>{{ thema.titel }}{% else %}Lassen Sie uns Ihr IT-Projekt planen{% endif %}</h1>
       <p class="unverbindlich"><strong>100&nbsp;% unverbindlich für Sie und mich</strong></p>
       <p>
         Sprechen oder schreiben Sie mit dem Assistenten. Er klärt mit Ihnen alle relevanten

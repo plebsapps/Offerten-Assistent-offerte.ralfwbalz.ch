@@ -7,7 +7,7 @@
 <table class="admin-table">
   <thead>
     <tr>
-      <th>Gestartet</th><th>IP</th><th>Fragen</th><th>Token (ein/aus)</th>
+      <th>Gestartet</th><th>IP</th><th>Anzeige</th><th>Fragen</th><th>Token (ein/aus)</th>
       <th>Offerte</th><th></th>
     </tr>
   </thead>
@@ -16,6 +16,7 @@
     <tr>
       <td class="muted">{{ g.created_at }}</td>
       <td class="muted">{{ g.ip or "–" }}</td>
+      <td>{{ g.anzeige or "–" }}</td>
       <td>{{ g.user_turns }}</td>
       <td class="muted">{{ g.tokens_in or 0 }} / {{ g.tokens_out or 0 }}</td>
       <td>

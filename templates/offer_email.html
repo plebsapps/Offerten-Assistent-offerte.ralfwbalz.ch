@@ -10,6 +10,7 @@
     <tr style="background:#f8fafc"><td style="padding:6px 10px;font-weight:bold;color:#555">Firma</td><td style="padding:6px 10px">{{ o.kunde.firma or '–' }}</td></tr>
     <tr><td style="padding:6px 10px;font-weight:bold;color:#555">E-Mail</td><td style="padding:6px 10px"><a href="mailto:{{ o.kunde.email }}" style="color:#3B82F6">{{ o.kunde.email or '–' }}</a></td></tr>
     <tr style="background:#f8fafc"><td style="padding:6px 10px;font-weight:bold;color:#555">Telefon</td><td style="padding:6px 10px">{{ o.kunde.telefon or '–' }}</td></tr>
+    <tr><td style="padding:6px 10px;font-weight:bold;color:#555">Anzeige</td><td style="padding:6px 10px">{{ anzeige or '–' }}</td></tr>
   </table>
 
   <h3 style="color:#1B2A4A">Zusammenfassung</h3>

@@ -28,6 +28,7 @@ import offer
 import voice
 import auth
 import settings
+import themen
 import routes_admin
 
 load_dotenv()
@@ -198,8 +199,24 @@ def _zugangslink_gueltig(row: dict | None) -> bool:
     return True
 
 
+def _thema(request: Request) -> dict:
+    """Anzeigenthema dieser Browser-Session (``themen.STANDARD``, wenn es keine Anzeige gab).
+
+    Einzige Quelle für Seitentext, Begrüssung (Template, erste DB-Nachricht, TTS) und
+    System-Prompt – die drei Begrüssungs-Stellen müssen denselben Text liefern."""
+    return themen.fuer_anzeige(request.session.get("thema"))
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    # Anzeigen verlinken auf /?adgroup=<schluessel>. Den Schlüssel im Sitzungs-Cookie merken:
+    # wer sich umsieht und ohne Parameter zurückkommt (Navigation, Redirect nach dem Code),
+    # behält sein Thema. Nur bekannte Schlüssel; ein Aufruf ohne lässt den alten Wert stehen.
+    adgroup = (request.query_params.get("adgroup") or "").strip()
+    if themen.bekannt(adgroup):
+        request.session["thema"] = adgroup
+    thema = _thema(request)
+
     if settings.zugangsmodus() == "einladung":
         # Bei JEDEM Besuch der Startseite ist ein gültiger Einladungslink (?z=<token>) nötig.
         # Ein früher gesetztes zugang_ok genügt allein nicht mehr, um die Chat-Seite zu sehen –
@@ -228,13 +245,14 @@ async def index(request: Request):
             # einer ChatGPT-Anzeige dann ab.
             return templates.TemplateResponse(
                 "einladung.html",
-                {"request": request, "selbst_zugang": settings.selbst_zugang_aktiv()},
+                {"request": request, "selbst_zugang": settings.selbst_zugang_aktiv(),
+                 "thema": thema},
             )
     kontakt = request.session.get("kontakt") or {}
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "homepage_url": HOMEPAGE_URL,
-         "begruessung": agent.begruessung(kontakt)},
+        {"request": request, "homepage_url": HOMEPAGE_URL, "thema": thema,
+         "begruessung": agent.begruessung(kontakt, thema)},
     )
 
 
@@ -412,7 +430,8 @@ async def zugang_verify(request: Request, email: str = Form(""), code: str = For
 async def zugang_zuruecksetzen(request: Request):
     """Button „Gespräch doch nicht starten“: Freischaltung verwerfen, zurück zur Zugangsseite.
 
-    Entfernt nur die Zugangs-Flags – eine Admin-Anmeldung im selben Cookie bleibt bestehen.
+    Entfernt nur die Zugangs-Flags – eine Admin-Anmeldung im selben Cookie bleibt bestehen,
+    ebenso das Anzeigenthema (``thema``): die Zugangsseite soll danach weiter dazu passen.
     Im Modus 'oeffentlich' gibt es keine Zugangsseite (``/`` zeigt gleich wieder den Chat),
     dort geht es stattdessen zur Hauptseite."""
     for schluessel in ("zugang_ok", "selbst_verifiziert", "kontakt"):
@@ -564,11 +583,12 @@ async def chat(request: Request):
                 {"error": "Zu viele Gespräche von dieser Verbindung. Bitte später erneut versuchen."},
                 status_code=429,
             )
-        db.create_session(session_id, ip)
+        db.create_session(session_id, ip, _thema(request)["schluessel"])
         # Die feste Eröffnungs-Begrüssung (clientseitig bereits angezeigt und vorgelesen) als
         # erste Assistenten-Nachricht ablegen, damit der Agent sie nicht wiederholt und nahtlos
         # an die Antwort des Kunden anschliesst.
-        db.add_message(session_id, "assistant", agent.begruessung(request.session.get("kontakt") or {}))
+        db.add_message(session_id, "assistant",
+                       agent.begruessung(request.session.get("kontakt") or {}, _thema(request)))
 
     # Kombinierte Kostenbremse: Turns ODER Token. Was zuerst die Hard-Schwelle erreicht,
     # beendet das Gespräch; die Soft-Schwelle lässt den Agenten sanft zum Abschluss überleiten.
@@ -591,11 +611,12 @@ async def chat(request: Request):
     db.add_message(session_id, "user", text)
     history = db.get_history(session_id)
     kontakt = request.session.get("kontakt") or {}
+    thema = _thema(request)
 
     def event_stream():
         try:
             for ev in agent.stream_reply(session_id, history, wind_down=wind_down,
-                                         kontakt=kontakt, beenden=beenden):
+                                         kontakt=kontakt, beenden=beenden, thema=thema):
                 yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
         except Exception as e:  # noqa: BLE001
             logger.error("Chat-Stream-Fehler: %s", e)
@@ -682,7 +703,7 @@ async def begruessung_audio(request: Request):
     if not _zugang_erlaubt(request):
         return JSONResponse({"error": "zugang"}, status_code=403)
     kontakt = request.session.get("kontakt") or {}
-    text = agent.begruessung(kontakt)
+    text = agent.begruessung(kontakt, _thema(request))
     audio = _begruessung_audio_cache.get(text)
     if audio is None:
         try:

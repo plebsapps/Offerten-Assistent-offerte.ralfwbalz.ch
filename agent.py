@@ -193,32 +193,63 @@ def _kontakt_hinweis(kontakt: dict | None) -> str:
     return "\n".join(z) + "\n"
 
 
-def begruessung(kontakt: dict | None = None) -> str:
+def _thema_hinweis(thema: dict | None) -> str:
+    """Hinweis an den Agenten, über welche Anzeige der Besucher kam (``themen.py``).
+
+    Ohne Anzeige – etwa über die Navigation von ralfwbalz.ch – ist nur bekannt, dass es um
+    ein Softwareprojekt geht."""
+    if not thema or not thema.get("schluessel"):
+        return (
+            "\nWICHTIG – Anlass des Gesprächs:\n"
+            "Der Besucher kam ohne bestimmtes Thema auf diese Seite. Geh davon aus, dass es "
+            "um ein Softwareprojekt geht, und kläre im Gespräch, um welches.\n"
+        )
+    return (
+        "\nWICHTIG – Anlass des Gesprächs:\n"
+        f"Der Besucher kam über eine Anzeige zum Thema „{thema['titel']}“ auf diese Seite. "
+        f"In solchen Gesprächen geht es typischerweise um {thema['stichworte']}.\n"
+        "Die Begrüssung hat dieses Thema bereits genannt. Bau darauf auf: frag nicht mehr "
+        "allgemein, worum es geht, sondern gleich nach dem konkreten Vorhaben in diesem "
+        "Bereich. Zähl die Stichworte nicht auf, sie sind nur dein Hintergrundwissen. Will "
+        "der Kunde etwas anderes besprechen, geh ohne Umschweife darauf ein – das Thema der "
+        "Anzeige ist ein Ausgangspunkt, keine Vorgabe.\n"
+    )
+
+
+def begruessung(kontakt: dict | None = None, thema: dict | None = None) -> str:
     """Feste Eröffnungs-Begrüssung des Assistenten (die erste, vorgelesene Zeile).
 
     Sie ist bewusst deterministisch: serverseitig wird sie vorab synthetisiert
     (`/begruessung.mp3`) und als erste Assistenten-Nachricht in die History gesetzt, damit
     die Stimme beim Start ohne LLM-Latenz sofort einsetzt. Ist der Gesprächspartner über
-    einen Einladungslink bekannt (Anrede/Name), wird persönlich begrüsst."""
+    einen Einladungslink bekannt (Anrede/Name), wird persönlich begrüsst; kam er über eine
+    Anzeige (``thema`` aus ``themen.py``), nennt die Begrüssung deren Thema."""
     kontakt = kontakt or {}
     anrede = (kontakt.get("anrede") or "").strip()
     name = (kontakt.get("name") or "").strip()
+    gesprochen = (thema or {}).get("gesprochen") or ""
     vorstellung = "ich bin der digitale Offerten-Assistent von Ralf Balz"
     if name and offer.ist_du_anrede(anrede):
+        if gesprochen:
+            return (f"Hallo {name}, {vorstellung}. Schön, dass du da bist. "
+                    f"Du interessierst dich für {gesprochen}. "
+                    f"Erzähl mir doch: Worum geht es bei deinem Projekt?")
         return (f"Hallo {name}, {vorstellung}. Schön, dass du da bist. "
                 f"Erzähl mir doch: Worum geht es bei deinem geplanten IT-Projekt?")
-    if name and anrede in ("Herr", "Frau"):
-        return (f"Guten Tag {anrede} {name}, {vorstellung}. Schön, dass Sie da sind. "
-                f"Erzählen Sie mir: Worum geht es bei Ihrem geplanten IT-Projekt?")
-    return (f"Guten Tag, {vorstellung}. Schön, dass Sie da sind. "
+    gruss = f"Guten Tag {anrede} {name}" if name and anrede in ("Herr", "Frau") else "Guten Tag"
+    if gesprochen:
+        return (f"{gruss}, {vorstellung}. Schön, dass Sie da sind. "
+                f"Sie interessieren sich für {gesprochen}. "
+                f"Erzählen Sie mir: Worum geht es bei Ihrem Projekt?")
+    return (f"{gruss}, {vorstellung}. Schön, dass Sie da sind. "
             f"Erzählen Sie mir: Worum geht es bei Ihrem geplanten IT-Projekt?")
 
 
 def build_system_prompt(wind_down: bool = False, kontakt: dict | None = None,
-                        beenden: bool = False) -> str:
-    """System-Prompt mit optionalem Kontakt-Hinweis und Abschluss-Hinweis (Soft-Limit
-    bzw. Button „Gespräch beenden“)."""
-    prompt = SYSTEM_PROMPT + _kontakt_hinweis(kontakt)
+                        beenden: bool = False, thema: dict | None = None) -> str:
+    """System-Prompt mit Anlass (Anzeigenthema), optionalem Kontakt-Hinweis und
+    Abschluss-Hinweis (Soft-Limit bzw. Button „Gespräch beenden“)."""
+    prompt = SYSTEM_PROMPT + _thema_hinweis(thema) + _kontakt_hinweis(kontakt)
     if beenden:
         prompt += BEENDEN_HINWEIS
     elif wind_down:
@@ -237,7 +268,8 @@ def _get_client() -> anthropic.Anthropic:
 
 
 def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
-                 kontakt: dict | None = None, beenden: bool = False):
+                 kontakt: dict | None = None, beenden: bool = False,
+                 thema: dict | None = None):
     """Dispatcher: streamt die Agenten-Antwort über den eingestellten KI-Anbieter.
 
     'claude' (Default, Anthropic) oder 'openai' (ChatGPT). Beide liefern dieselbe
@@ -248,6 +280,8 @@ def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
 
     beenden: Kunde hat „Gespräch beenden“ geklickt – die erste Runde erzwingt den Aufruf
     von „offerte_erstellen“ mit dem bisherigen Stand.
+
+    thema: Anzeigenthema aus ``themen.fuer_anzeige`` – der Agent weiss, worum es geht.
 
     Yields: {"type": "token", "text": ...} | {"type": "offer_created"} |
             {"type": "done"} | {"type": "error", "message": ...}
@@ -264,14 +298,15 @@ def stream_reply(session_id: str, history: list[dict], wind_down: bool = False,
     if settings.ki_anbieter() == "openai":
         import agent_openai  # lazy: vermeidet Zirkelbezug beim Import
         yield from agent_openai.stream_reply(session_id, history, wind_down=wind_down,
-                                             kontakt=kontakt, beenden=beenden)
+                                             kontakt=kontakt, beenden=beenden, thema=thema)
     else:
         yield from _stream_reply_claude(session_id, history, wind_down=wind_down,
-                                        kontakt=kontakt, beenden=beenden)
+                                        kontakt=kontakt, beenden=beenden, thema=thema)
 
 
 def _stream_reply_claude(session_id: str, history: list[dict], wind_down: bool = False,
-                         kontakt: dict | None = None, beenden: bool = False):
+                         kontakt: dict | None = None, beenden: bool = False,
+                         thema: dict | None = None):
     """Streamt die Agenten-Antwort von Claude als Event-Dicts.
 
     history: Liste von {role, content}. Persistiert am Ende die Assistenz-Antwort und
@@ -282,7 +317,7 @@ def _stream_reply_claude(session_id: str, history: list[dict], wind_down: bool =
     """
     messages: list[dict] = [{"role": m["role"], "content": m["content"]} for m in history]
     final_text_parts: list[str] = []
-    system_prompt = build_system_prompt(wind_down, kontakt, beenden)
+    system_prompt = build_system_prompt(wind_down, kontakt, beenden, thema)
     tokens_in = tokens_out = 0
 
     for runde in range(MAX_TOOL_ROUNDS + 1):

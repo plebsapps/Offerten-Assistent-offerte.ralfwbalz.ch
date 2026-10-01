@@ -8,6 +8,9 @@
   <h1>Gesprächsverlauf</h1>
   <div class="muted">
     Token: {{ tokens_in }} ein / {{ tokens_out }} aus
+    {% if anzeige %}
+    · Anzeige: {{ anzeige }}
+    {% endif %}
     {% if offerte %}
     · <a class="btn-link" href="/admin/offerten">Offerte vorhanden</a>
     {% endif %}

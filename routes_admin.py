@@ -19,6 +19,7 @@ import db
 import auth
 import offer
 import settings
+import themen
 
 logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory="templates")
@@ -185,8 +186,11 @@ async def zugang_deaktivieren(request: Request, link_id: int,
 
 @router.get("/admin/gespraeche", response_class=HTMLResponse)
 async def gespraeche(request: Request, _: None = Depends(auth.require_admin)):
+    gespraeche = db.list_sessions()
+    for g in gespraeche:
+        g["anzeige"] = themen.titel(g["thema"])
     return templates.TemplateResponse("admin/gespraeche.html", {
-        "request": request, "gespraeche": db.list_sessions()})
+        "request": request, "gespraeche": gespraeche})
 
 
 @router.get("/admin/gespraeche/{session_id}", response_class=HTMLResponse)
@@ -200,6 +204,7 @@ async def gespraech_detail(request: Request, session_id: str,
         "history": history,
         "tokens_in": tokens_in,
         "tokens_out": tokens_out,
+        "anzeige": themen.titel(db.get_session_thema(session_id)),
         "offerte": db.get_offer_by_session(session_id),
     })
 

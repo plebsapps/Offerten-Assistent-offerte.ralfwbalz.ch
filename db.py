@@ -97,6 +97,11 @@ def init() -> None:
                 c.execute(f"ALTER TABLE sessions ADD COLUMN {spalte} INTEGER NOT NULL DEFAULT 0")
             except sqlite3.OperationalError:
                 pass  # Spalte existiert bereits
+        # Migration: Anzeigenthema je Gespräch (Schlüssel aus themen.py, '' = ohne Anzeige).
+        try:
+            c.execute("ALTER TABLE sessions ADD COLUMN thema TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # Spalte existiert bereits
         # Migration: Empfänger-Daten je Einladungslink nachrüsten.
         for spalte in ("empfaenger_email", "anrede", "name"):
             try:
@@ -115,12 +120,19 @@ def session_exists(session_id: str) -> bool:
         return row is not None
 
 
-def create_session(session_id: str, ip: str) -> None:
+def create_session(session_id: str, ip: str, thema: str = "") -> None:
     with _conn() as c:
         c.execute(
-            "INSERT OR IGNORE INTO sessions (id, created_at, ip) VALUES (?, ?, ?)",
-            (session_id, _now(), ip),
+            "INSERT OR IGNORE INTO sessions (id, created_at, ip, thema) VALUES (?, ?, ?, ?)",
+            (session_id, _now(), ip, thema),
         )
+
+
+def get_session_thema(session_id: str) -> str:
+    """Schlüssel des Anzeigenthemas, mit dem das Gespräch begann ('' = ohne Anzeige)."""
+    with _conn() as c:
+        row = c.execute("SELECT thema FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        return (row["thema"] or "") if row else ""
 
 
 def count_recent_sessions_for_ip(ip: str, within_seconds: int) -> int:
@@ -428,7 +440,7 @@ def list_sessions() -> list[dict]:
     with _conn() as c:
         rows = c.execute(
             """
-            SELECT s.id, s.created_at, s.ip, s.status, s.tokens_in, s.tokens_out,
+            SELECT s.id, s.created_at, s.ip, s.status, s.tokens_in, s.tokens_out, s.thema,
                    (SELECT COUNT(*) FROM messages m
                       WHERE m.session_id = s.id AND m.role = 'user') AS user_turns,
                    (SELECT COUNT(*) FROM messages m

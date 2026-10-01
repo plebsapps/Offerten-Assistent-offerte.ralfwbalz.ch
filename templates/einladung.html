@@ -4,7 +4,7 @@
 {% include "_google_tag.html" %}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>{% if selbst_zugang %}Zugang zum Offerten-Assistenten{% else %}Zugang nur per Einladung{% endif %} – Offerten-Assistent</title>
+  <title>{% if selbst_zugang and thema.schluessel %}{{ thema.titel }}{% elif selbst_zugang %}Zugang zum Offerten-Assistenten{% else %}Zugang nur per Einladung{% endif %} – Offerten-Assistent</title>
   <meta name="description" content="Offerten im Gespräch erstellen: Der KI-Assistent von Ralf W. Balz nimmt Ihr Anliegen per Sprache oder Text auf und macht daraus eine fertige Offerte als PDF.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://offerte.ralfwbalz.ch/">
@@ -63,12 +63,12 @@
   <main class="wrap">
     <section class="intro">
       {% if selbst_zugang %}
-      <h1>Zugang zum Offerten-Assistenten</h1>
-      <p class="unverbindlich"><strong>100&nbsp;% unverbindlich für Sie und mich</strong></p>
+      <h1>Ich kann Ihnen helfen bei:<br>{{ thema.titel }}</h1>
+      <p class="unverbindlich"><strong>Ich erstelle Ihnen ein 100&nbsp;% unverbindliches Angebot.</strong></p>
       <p>
-        Damit ich Ihnen eine Offerte erstellen kann, beschreiben Sie bitte kurz, worum es bei
-        Ihrem Projekt geht. Geben Sie dazu unten Ihre Daten ein. Sie erhalten dann Zugang zum
-        KI-Assistenten, der Ihr Projekt mit Ihnen bespricht.
+        Gleich übernimmt mein KI-Assistent: Er bespricht Ihr Projekt in wenigen Minuten mit
+        Ihnen, per Sprache oder Text, und hält alles Wichtige fest. Daraus erstelle ich
+        persönlich Ihr Angebot. Geben Sie dazu unten Ihre Daten ein.
       </p>
       <p>
         Fordern Sie sich hier in Sekunden selbst einen Zugang an: Sie erhalten einen

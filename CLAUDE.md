@@ -90,7 +90,7 @@ Keine Tests/Linter konfiguriert.
 - **`offer.py`** – Pydantic-/Dict-Daten → WeasyPrint-PDF → SMTP. Wichtig: Versand-Flow.
   `send_invitation(...)` mailt zusätzlich einen Einladungslink (ohne Anhang) an den Empfänger;
   `_smtp_send` hat dafür optionales PDF.
-- **`db.py`** – SQLite (`sessions` inkl. `tokens_in`/`tokens_out`, `messages`, `offers`,
+- **`db.py`** – SQLite (`sessions` inkl. `tokens_in`/`tokens_out`/`thema`, `messages`, `offers`,
   `einstellungen`, `zugangslinks`, `zugang_codes`; WAL-Modus, eine Verbindung pro Aufruf;
   Spalten-Migration via `ALTER TABLE … / except OperationalError`). Die `session_id` wird browserseitig pro
   Seitenaufruf erzeugt (`crypto.randomUUID`, nicht persistiert) – ein Reload startet daher ein
@@ -147,6 +147,26 @@ Keine Tests/Linter konfiguriert.
   gibt es das bestehende `limit`-Event (Stopp). Erreicht eines die **Soft**-Schwelle
   (`soft_turns`/`soft_tokens`), läuft der Agent mit `wind_down=True` und leitet hörbar zum
   Abschluss über. Token werden in `agent.stream_reply` aus `final.usage` summiert.
+- **Anzeigenthema** (`themen.py`): die 13 Anzeigen verlinken auf `/?adgroup=<schluessel>`
+  (z. B. `data_migration`). `GET /` prüft den Wert gegen die Whitelist `themen.THEMEN` und legt
+  nur den **Schlüssel** in `request.session["thema"]` – nie freien Text aus der URL, denn der
+  Titel landet im HTML, in der Begrüssung und im System-Prompt. Weil es im Sitzungs-Cookie
+  liegt, bleibt das Thema erhalten, wenn jemand sich umsieht (ralfwbalz.ch, Impressum) und ohne
+  Parameter zurückkommt, und es übersteht den Redirect nach `/zugang/verify` sowie
+  `/zugang/zuruecksetzen`. Eine neue gültige Anzeige überschreibt, ein Aufruf ohne oder mit
+  unbekanntem Wert lässt den alten Wert stehen. Ohne Anzeige gilt `themen.STANDARD`
+  („Ihrem Softwareprojekt“, leerer Schlüssel). `main._thema(request)` ist die einzige Quelle
+  für: Überschrift in `einladung.html` („Ich kann Ihnen helfen bei: <Titel>“, auch `<title>`)
+  und `index.html`, `agent.begruessung(kontakt, thema)` an ihren **drei** Aufrufstellen
+  (Template, erste DB-Nachricht, `/begruessung.mp3` – sie müssen denselben Text liefern) und
+  `agent.build_system_prompt(..., thema)`, das über `_thema_hinweis` den Anlass anhängt. Je
+  Thema gibt es `titel` (Anzeigenname), `gesprochen` (Form für die vorgelesene Begrüssung, ohne
+  Schrägstrich) und `stichworte` (Hintergrund für den Prompt). Der Schlüssel wird beim ersten
+  `/chat` in `sessions.thema` geschrieben und erscheint als „Anzeige“ in der Admin-
+  Gesprächsliste, im Transkript und in der Mail an Ralf. Eine neue Anzeige heisst: Eintrag in
+  `themen.py`, sonst nichts. Das Impressum nennt das Thema beim Sitzungs-Cookie – das Cookie
+  entsteht damit schon beim ersten Aufruf über eine Anzeige. Die Besucherstatistik auf
+  ralfwbalz.ch sieht `adgroup` nicht (der Import schneidet den Query-String ab).
 - **Chat-Startseite** (`index.html`, vor dem Start): fette Zeile „100 % unverbindlich für Sie
   und mich“ und neben „Gespräch starten“ der Button „Gespräch doch nicht starten“. Er schickt
   `POST /zugang/zuruecksetzen`: das entfernt `zugang_ok`, `selbst_verifiziert` und `kontakt` aus

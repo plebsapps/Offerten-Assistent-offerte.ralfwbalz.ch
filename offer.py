@@ -20,6 +20,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 import db
 import settings
+import themen
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +97,12 @@ def create_and_send(session_id: str, data: dict) -> None:
         f.write(pdf_bytes)
 
     db.save_offer(session_id, json.dumps(data, ensure_ascii=False), pdf_path, token)
-    _send_to_ralf(data, history, pdf_bytes, token)
+    _send_to_ralf(data, history, pdf_bytes, token,
+                  anzeige=themen.titel(db.get_session_thema(session_id)))
 
 
-def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str) -> None:
+def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str,
+                  anzeige: str = "") -> None:
     recipient = os.environ["CONTACT_EMAIL"]
     freigabe_url = f"{settings.basis_url()}/freigabe/{token}"
 
@@ -111,13 +114,15 @@ def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str)
         o=data,
         freigabe_url=freigabe_url,
         transcript=transcript,
+        anzeige=anzeige,
         erstellt=datetime.now().strftime("%d.%m.%Y um %H:%M Uhr"),
     )
     plain = (
         f"Neue Offerten-Grundlage: {titel}\n\n"
         f"Kunde:   {kunde.get('name', '–')} ({kunde.get('firma', '–')})\n"
         f"E-Mail:  {kunde.get('email', '–')}\n"
-        f"Telefon: {kunde.get('telefon', '–')}\n\n"
+        f"Telefon: {kunde.get('telefon', '–')}\n"
+        f"Anzeige: {anzeige or '–'}\n\n"
         f"Zusammenfassung:\n{data.get('zusammenfassung', '')}\n\n"
         f"--- Diese Offerte an den Auftraggeber freigeben/senden: ---\n{freigabe_url}\n\n"
         f"(Die Offerte wurde NICHT automatisch an den Kunden gesendet.)\n\n"
