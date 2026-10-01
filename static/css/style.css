@@ -380,6 +380,11 @@ body {
 }
 .btn-beenden:hover { border-color: var(--navy); }
 .btn-beenden:disabled { opacity: .5; cursor: default; }
+/* Als Link neben „Gespräch starten“ (Startseite des Chats): gleich hoch wie .btn-primary */
+a.btn-beenden { display: inline-flex; align-items: center; text-decoration: none; }
+.button-zeile .btn-primary { margin-top: 0; }
+.button-zeile .btn-beenden { padding: 11px 22px; font-size: 1rem; }
+.intro .unverbindlich { color: var(--navy); font-size: 1.1rem; margin: 6px 0 0; }
 .mic-hint {
   margin: 0;
   padding: 2px 14px 10px;

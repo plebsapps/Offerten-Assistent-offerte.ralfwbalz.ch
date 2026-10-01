@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <title>Offerten-Assistent – ralfwbalz.ch</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=16">
+  <link rel="stylesheet" href="/static/css/style.css?v=17">
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -49,12 +49,16 @@
 
     <section class="intro" id="intro">
       <h1>Lassen Sie uns Ihr IT-Projekt planen</h1>
+      <p class="unverbindlich"><strong>100&nbsp;% unverbindlich für Sie und mich</strong></p>
       <p>
         Sprechen oder schreiben Sie mit dem Assistenten. Er klärt mit Ihnen alle relevanten
         Punkte und erstellt am Ende eine Offerten-Grundlage. Ralf&nbsp;W.&nbsp;Balz prüft und
         kalkuliert diese persönlich und meldet sich anschliessend bei Ihnen.
       </p>
-      <button id="startBtn" class="btn-primary">Gespräch starten</button>
+      <div class="button-zeile">
+        <button id="startBtn" class="btn-primary">Gespräch starten</button>
+        <a href="{{ homepage_url }}" class="btn-beenden">Gespräch doch nicht starten</a>
+      </div>
     </section>
 
     <section class="chat hidden" id="chat">
