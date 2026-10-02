@@ -9,6 +9,7 @@
 </head>
 <body>
   {% set p = request.url.path %}
+  {% set intern_aktiv = "offerte" %}{% include "admin/_intern_nav.html" %}
   <header class="admin-topbar">
     <nav class="adminnav">
       <a href="/admin" class="{{ 'active' if p == '/admin' else '' }}">Dashboard</a>
@@ -18,7 +19,7 @@
       <a href="/admin/einstellungen" class="{{ 'active' if p.startswith('/admin/einstellungen') else '' }}">Einstellungen</a>
     </nav>
     <div class="admin-title">Admin Offerten-Assistent</div>
-    <a class="adminnav-logout" href="/admin/logout">Abmelden</a>
+    <a class="adminnav-logout" href="/">Zum Assistenten</a>
   </header>
 
   <main class="admin-wrap">

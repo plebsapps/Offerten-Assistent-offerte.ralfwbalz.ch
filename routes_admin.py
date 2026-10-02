@@ -1,7 +1,8 @@
-"""Admin-Bereich: Login, Dashboard, Zugang/Einladungslinks, Gespräche, Offerten, Einstellungen.
+"""Admin-Bereich: Dashboard, Zugang/Einladungslinks, Gespräche, Offerten, Einstellungen.
 
-Alle Routen außer Login/Logout hängen an ``require_admin``. Bei fehlender Anmeldung
-löst die Dependency ``NichtAngemeldet`` aus → Redirect auf /admin/login (Handler in main).
+Alle Routen hängen an ``require_admin``. Bei fehlender Anmeldung löst die Dependency
+``NichtAngemeldet`` aus → Redirect auf die gemeinsame Anmeldung von ralfwbalz.ch
+(Handler in main). An- und abgemeldet wird dort, nicht hier.
 Datenhaltung über die schlanke SQLite-Schicht in ``db.py`` (kein PostgreSQL wie im
 Schwesterprojekt bewerbung-ralfwbalz, an dem sich Aufbau und Templates orientieren).
 """
@@ -32,29 +33,15 @@ def _redirect(url: str) -> RedirectResponse:
 
 # ----------------------------------------------------------------- Login -----
 
-@router.get("/admin/login", response_class=HTMLResponse)
-async def login_form(request: Request, fehler: str | None = None):
-    if auth.ist_angemeldet(request):
-        return _redirect("/admin")
-    return templates.TemplateResponse(
-        "admin/login.html", {"request": request, "fehler": fehler})
+@router.get("/admin/login")
+async def login_form(request: Request):
+    """Alte Adresse der Anmeldung – bleibt für Lesezeichen und leitet weiter.
 
-
-@router.post("/admin/login")
-async def login(request: Request, benutzer: str = Form(...), passwort: str = Form(...)):
-    if auth.pruefe_login(benutzer, passwort):
-        auth.anmelden(request)
-        return _redirect("/admin")
-    return templates.TemplateResponse(
-        "admin/login.html",
-        {"request": request, "fehler": "Benutzername oder Passwort falsch."},
-        status_code=401)
-
-
-@router.get("/admin/logout")
-async def logout(request: Request):
-    auth.abmelden(request)
-    return _redirect("/")  # zurück auf die öffentliche Startseite (offerte.ralfwbalz.ch)
+    Angemeldet wird auf ralfwbalz.ch (siehe auth.py); ``require_admin`` löst für
+    Unangemeldete ``NichtAngemeldet`` aus, der Handler in main leitet dorthin um.
+    """
+    auth.require_admin(request)
+    return _redirect("/admin")
 
 
 # ------------------------------------------------------------- Dashboard -----

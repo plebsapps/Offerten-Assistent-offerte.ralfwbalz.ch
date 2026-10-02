@@ -88,11 +88,17 @@ app.include_router(routes_admin.router)
 
 MAX_SESSIONS_PER_IP = int(os.environ.get("MAX_SESSIONS_PER_IP", "5"))
 RATE_WINDOW_SECONDS = 3600  # 1 Stunde
-HOMEPAGE_URL = os.environ.get("HOMEPAGE_URL", "https://ralfwbalz.ch")
+HOMEPAGE_URL = os.environ.get("HOMEPAGE_URL", "https://ralfwbalz.ch").rstrip("/")
 # Das Logo in der Kopfzeile zeigt auf die Hauptseite. Als Jinja-Global steht der
 # Wert allen Templates zur Verfügung, auch impressum/einladung/freigabe, die
 # sonst keinen eigenen Kontext dafür bekämen.
 templates.env.globals["homepage_url"] = HOMEPAGE_URL
+# Für die gemeinsame Leiste templates/admin/_intern_nav.html (Kopie aus ralfwbalz/):
+# auf der eigenen Domain relative Links, zur Hauptseite die volle Adresse. Anmelden und
+# Abmelden liegen dort – siehe auth.py.
+# routes_admin hat eine eigene Jinja-Umgebung; nur die Admin-Templates binden die Leiste ein.
+routes_admin.templates.env.globals["intern_haupt"] = HOMEPAGE_URL
+routes_admin.templates.env.globals["intern_offerte"] = ""
 # Logo der gemeinsamen Fussleiste (templates/_footer.html, Kopie aus ralfwbalz/).
 templates.env.globals["fuss_logo"] = "/static/img/logo-ralfwbalz.svg"
 
@@ -161,7 +167,8 @@ async def _startup() -> None:
 
 @app.exception_handler(auth.NichtAngemeldet)
 async def _nicht_angemeldet(request: Request, exc: auth.NichtAngemeldet):
-    return RedirectResponse(url="/admin/login", status_code=303)
+    # Angemeldet wird auf der Hauptseite; `weiter=offerte` führt danach hierher zurück.
+    return RedirectResponse(url=f"{HOMEPAGE_URL}/anmelden?weiter=offerte", status_code=303)
 
 
 def _zugang_erlaubt(request: Request) -> bool:

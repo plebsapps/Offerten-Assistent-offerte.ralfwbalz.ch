@@ -35,8 +35,11 @@ Keine Tests/Linter konfiguriert.
 - `PUBLIC_BASE_URL` (für den Freigabe-Link in der Mail an Ralf **und** die Einladungslinks)
 - `HOMEPAGE_URL` (Default `https://ralfwbalz.ch`) – Ziel des Abschluss-Sprungs nach erstellter Offerte
 - `DATA_DIR` (SQLite-DB + PDFs; im Container `/data`, lokal `./data`)
-- Admin-Bereich: `ADMIN_USER`, `ADMIN_PASSWORD_HASH` (bcrypt-Hash, Erzeugung siehe `.env.example`),
-  `SECRET_KEY` (signiert das Session-Cookie für Admin-Login **und** den Einladungs-Zugang)
+- Admin-Bereich: `ZUGANG_SCHLUESSEL` – **derselbe Wert wie in `~/ralfwbalz/.env`**, mindestens
+  32 Zeichen. Damit prüft diese App das Anmelde-Cookie der Hauptseite; fehlt er, kommt
+  niemand in den Admin. Siehe *Gemeinsamer Zugang* weiter unten.
+- `SECRET_KEY` signiert das Session-Cookie des Einladungs-Zugangs (Besucher). Mit dem Admin
+  hat es seit 02.10.2026 nichts mehr zu tun.
 - Kostenbremse (kombiniert Turns **und** Token, was zuerst greift): `MAX_SESSIONS_PER_IP`
   (Default 5, gleitendes 1-Stunden-Fenster pro IP), `MAX_TURNS_PER_SESSION` (Default 40),
   `SOFT_TURNS` (Default 30), `MAX_TOKENS_PER_SESSION` (Default 150000), `SOFT_TOKENS`
@@ -53,20 +56,21 @@ Keine Tests/Linter konfiguriert.
 - **`main.py`** – FastAPI: liefert die UI, den SSE-Chat-Endpunkt `POST /chat`, die
   Audio-Endpunkte `POST /chat/stt` und `POST /chat/tts` (OpenAI, siehe `voice.py`) und den
   Freigabe-Endpunkt `GET /freigabe/{token}`. `SessionMiddleware` (signiertes Cookie) plus
-  Exception-Handler für `auth.NichtAngemeldet` → Redirect `/admin/login`. Rate-Limit pro IP,
+  Exception-Handler für `auth.NichtAngemeldet` → Redirect auf `https://ralfwbalz.ch/anmelden?weiter=offerte`. Rate-Limit pro IP,
   kombinierte Kostenbremse (siehe unten), Honeypot-Feld `website`, **Zugangs-Gate** vor
   `/`, `/chat`, `/chat/stt`, `/chat/tts`. Die Audio-Endpunkte bedienen nur bestehende
   `session_id`s, damit die kostenpflichtigen OpenAI-Calls am selben Missbrauchsschutz wie der
   Chat hängen.
-- **`routes_admin.py`** – Admin-Bereich unter `/admin*` (alle Routen außer Login via
-  `Depends(auth.require_admin)`): Login/Logout, Dashboard (Kennzahlen), `/admin/zugang`
+- **`routes_admin.py`** – Admin-Bereich unter `/admin*` (alle Routen via
+  `Depends(auth.require_admin)`; `/admin/login` leitet nur noch weiter): Dashboard (Kennzahlen), `/admin/zugang`
   (Modus-Toggle + Self-Service-Schalter + Einladungslinks anlegen/deaktivieren/verlängern, optional
   direkt per E-Mail versenden via `offer.send_invitation`; listet auch die Self-Service-Anmeldungen),
   `/admin/gespraeche` (+ Transkript), `/admin/offerten` (PDF-Download +
   Freigabe an Kunden via `offer.release_to_customer`), `/admin/einstellungen` (Limit-Schwellen +
   KI-Anbieter-Toggle pflegen).
-- **`auth.py`** – bcrypt-Login + Session-Helfer (`anmelden`/`abmelden`/`ist_angemeldet`,
-  `require_admin`, `NichtAngemeldet`). Zugangsdaten nur aus der Umgebung.
+- **`auth.py`** – prüft das Anmelde-Cookie `rwb_zugang` der Hauptseite (`ist_angemeldet`,
+  `require_admin`, `NichtAngemeldet`) und bei schreibenden Anfragen die Herkunft. Kein
+  Passwort, kein Benutzer, kein bcrypt mehr in dieser App.
 - **`settings.py`** – zentrale Laufzeit-Konfig: `zugangsmodus()` (`oeffentlich`/`einladung`),
   `selbst_zugang_aktiv()` (Self-Service-Schalter), `ki_anbieter()` (`claude`/`openai`),
   `basis_url()` (öffentliche Basis-URL mit Produktions-Fallback) und die Limit-Getter, gelesen aus
@@ -219,7 +223,7 @@ Schublade (Toggle ebenfalls in `logo.js`). Anders als auf der Hauptseite steht d
 **im Fluss statt `position: fixed`** – die Chat-Seite rechnet mit `.messages { height: 56dvh }`
 und einer klebenden `.composer`. Das Markup der Kopfzeile ist wie bisher je Seite dupliziert
 (kein `extends` auf der öffentlichen Seite), eine CSS-Version (`?v=…`) also in **allen fünf** Besucher-Templates zu
-erhöhen (die beiden Admin-Templates führen eine eigene Nummer).
+erhöhen (`admin/layout.html` führt eine eigene Nummer).
 
 Alle Links auf die Hauptseite zeigen auf die **nackte** Domain, nicht auf `www.` – dort
 leitet nginx seit dem 28.09.2026 mit 301 um, und kanonisch ist `ralfwbalz.ch` (so stehen es
@@ -242,7 +246,7 @@ Die Footer-Regeln in `style.css` haben dieselben Werte wie auf der Hauptseite (1
 Umbruch in eine Spalte ab 600 px); zusätzlich stehen nur `margin: 0`, `line-height: 1.6` und
 `display: block`, die dort aus dem globalen Reset kommen, und `flex-shrink: 0` für das
 Spalten-Layout hier. Es gibt **keinen Login-Link** mehr im Footer – der Admin-Bereich ist nur
-noch direkt über `/admin/login` erreichbar. „Cookie-Einstellungen" steht fest im Markup
+noch direkt über `/admin` erreichbar. „Cookie-Einstellungen" steht fest im Markup
 (`data-cookie-einstellungen`, `href="/impressum#google-ads"`): `einwilligung.js` bindet daran
 das Banner, auf Seiten ohne Google-Tag (`freigabe.html`) führt der Link ins Impressum.
 
@@ -315,11 +319,11 @@ Die Meta-Robots-Tags sind **nicht** einheitlich, das ist Absicht:
 `einladung.html`, `kurzanfrage.html` und `impressum.html` stehen auf `index, follow` und sind in der Sitemap –
 `einladung.html` ist die Zielseite der Anzeige und trägt zusätzlich `description`,
 `canonical` und OG-/Twitter-Tags. `index.html` (Chat), `freigabe.html` (Token-URL) und die
-beiden Admin-Templates behalten `noindex`. Dass `GET /` je nach Zugang zwei verschiedene
+Admin-Templates behalten `noindex`. Dass `GET /` je nach Zugang zwei verschiedene
 Templates rendert, ist dabei unkritisch: ein Crawler sieht nur `einladung.html`.
 
-Der Admin-Bereich behält seine eigene `.admin-topbar` (`admin/layout.html`); `admin/login.html`
-nutzt sie neu ebenfalls (vorher eine kaputte `.topbar`-Variante mit undefinierter `.subbrand`).
+Der Admin-Bereich behält seine eigene `.admin-topbar` (`admin/layout.html`); darüber liegt
+die gemeinsame Leiste `admin/_intern_nav.html`. Eine eigene Login-Seite gibt es nicht mehr.
 `static/img/logo-ralfwbalz.svg` ist aus dem Hauptprojekt kopiert und dient als Footer-Logo
 und Favicon.
 
@@ -339,5 +343,39 @@ Der vhost schreibt sein Zugriffsprotokoll bewusst nach `/var/log/nginx/offerte.a
 statt in das gemeinsame `access.log` aller vhosts: aus dieser Datei trägt das
 Nachbarprojekt (`~/ralfwbalz/werkzeuge/offerte_import.sh`) die Besuche stündlich in die
 Besucherstatistik unter ralfwbalz.ch/statistik nach. Diese App selbst bleibt davon
-unberührt – sie erfasst nichts und kennt jenes Projekt nicht. Wird die `access_log`-Zeile
+unberührt – sie erfasst nichts. Wird die `access_log`-Zeile
 entfernt, bleibt die Statistik dort still stehen.
+
+## Gemeinsamer Zugang mit ralfwbalz.ch
+
+Seit 02.10.2026 gibt es **eine** Anmeldung für alles Interne: `https://ralfwbalz.ch/anmelden`
+gilt für die Redaktion und die Statistik dort und für `/admin` hier. Vorher hatte diese App
+ein eigenes Login (`ADMIN_USER`, `ADMIN_PASSWORD_HASH`, Flag `admin` im Session-Cookie).
+
+- Die Hauptseite prüft Benutzer und Passwort und setzt das Cookie `rwb_zugang` mit
+  `Domain=ralfwbalz.ch`, der Browser schickt es also auch hierher. Inhalt:
+  `{ablauf}.{hmac-sha256}`, Schlüssel `sha256("zugang|" + ZUGANG_SCHLUESSEL)`.
+- `auth.py` prüft nur diese Signatur. Die Funktion ist eine **bewusste Kopie** von
+  `_token_gueltig` aus `~/ralfwbalz/main.py` – weiterhin kein geteilter Code. Ändert sich
+  dort das Format oder die Schlüsselableitung, muss es hier nachgezogen werden, sonst sperrt
+  sich der Admin still aus.
+- `ZUGANG_SCHLUESSEL` wird erst beim Aufruf gelesen (`main.py` importiert `auth` vor
+  `load_dotenv()`), muss in beiden `.env` gleich sein und mindestens 32 Zeichen haben. Ein
+  leerer Wert ergäbe einen bekannten Schlüssel, darum gilt dann niemand als angemeldet.
+- **Herkunftsprüfung:** `require_admin` verlangt bei allem ausser `GET`/`HEAD` einen
+  `Origin` (ersatzweise `Referer`), dessen Host dem `Host` der Anfrage entspricht. Vorher
+  hatten die Admin-POSTs keinen CSRF-Schutz ausser `SameSite=Lax`; mit einem Cookie für die
+  ganze Domain reicht das nicht, denn ralfwbalz.ch und jede Subdomain sind dieselbe *Site*.
+- **Abmelden** ist ein Formular per POST an `https://ralfwbalz.ch/abmelden` (dort ist diese
+  Domain als zweite Herkunft zugelassen). `/admin/logout` gibt es nicht mehr; `/admin/login`
+  leitet für alte Lesezeichen weiter.
+- `templates/admin/_intern_nav.html` ist die Leiste zum Wechseln zwischen Fachbeiträgen,
+  Statistik und diesem Admin. Wie `_footer.html` eine **Kopie aus `~/ralfwbalz/templates/`**,
+  die byte-identisch bleiben muss; die Basis-Adressen kommen als Jinja-Globals
+  (`intern_haupt` = `HOMEPAGE_URL`, `intern_offerte` leer) und werden in `main.py` auf
+  `routes_admin.templates` gesetzt, weil der Admin eine eigene Jinja-Umgebung hat.
+- Das Session-Cookie `session` bleibt ein Host-Cookie und trägt nur noch den Besucher-Zustand.
+- `ADMIN_USER` und `ADMIN_PASSWORD_HASH` gibt es in der `.env` nicht mehr. Der Hash wurde
+  nach `~/ralfwbalz/.env` übernommen (dort `ADMIN_PASSWORT_HASH`), das Passwort ist also
+  dasselbe geblieben.
+- `GET /freigabe/{token}` ist davon unberührt und braucht weiterhin keine Anmeldung.
