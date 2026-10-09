@@ -168,7 +168,9 @@ Keine Tests/Linter konfiguriert.
   Schrägstrich) und `stichworte` (Hintergrund für den Prompt). Der Schlüssel wird beim ersten
   `/chat` in `sessions.thema` geschrieben und erscheint als „Anzeige“ in der Admin-
   Gesprächsliste, im Transkript und in der Mail an Ralf. Eine neue Anzeige heisst: Eintrag in
-  `themen.py`, sonst nichts. Das Impressum nennt das Thema beim Sitzungs-Cookie – das Cookie
+  `themen.py`, sonst nichts. Neue Schlüssel sind **deutsch** (`messdaten_pruefberichte`, seit
+  09.10.2026, Umlaute ausgeschrieben – erlaubt ist nur `[a-z0-9_]`); die 13 älteren bleiben
+  englisch, weil ihre Adressen in den laufenden Anzeigen stehen. Das Impressum nennt das Thema beim Sitzungs-Cookie – das Cookie
   entsteht damit schon beim ersten Aufruf über eine Anzeige. Die Besucherstatistik auf
   ralfwbalz.ch liest `adgroup` aus dem nginx-Log dieses vhosts und weist Besucher je Anzeige
   aus; die Anzeigenamen dort (`STATISTIK_ANZEIGEN` in `ralfwbalz/main.py`) sind eine Kopie der
