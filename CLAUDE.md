@@ -151,7 +151,7 @@ Keine Tests/Linter konfiguriert.
   gibt es das bestehende `limit`-Event (Stopp). Erreicht eines die **Soft**-Schwelle
   (`soft_turns`/`soft_tokens`), läuft der Agent mit `wind_down=True` und leitet hörbar zum
   Abschluss über. Token werden in `agent.stream_reply` aus `final.usage` summiert.
-- **Anzeigenthema** (`themen.py`): die 13 Anzeigen verlinken auf `/?adgroup=<schluessel>`
+- **Anzeigenthema** (`themen.py`): die 14 Anzeigen verlinken auf `/?adgroup=<schluessel>`
   (z. B. `data_migration`). `GET /` prüft den Wert gegen die Whitelist `themen.THEMEN` und legt
   nur den **Schlüssel** in `request.session["thema"]` – nie freien Text aus der URL, denn der
   Titel landet im HTML, in der Begrüssung und im System-Prompt. Weil es im Sitzungs-Cookie

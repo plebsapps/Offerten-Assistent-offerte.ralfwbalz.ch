@@ -125,6 +125,17 @@ THEMEN: dict[str, dict[str, str]] = {
             "Versionen und die strukturierte Weiterentwicklung einer Softwareidee"
         ),
     },
+    "messdaten_pruefberichte": {
+        "titel": "Messdaten / Prüfberichte digitalisieren",
+        "gesprochen": "die Digitalisierung von Messdaten und Prüfberichten",
+        "stichworte": (
+            "Messdatenerfassung von Prüfständen und Messgeräten, Import aus CSV-, Excel- oder "
+            "herstellereigenen Formaten, automatische und reproduzierbare Auswertung, "
+            "Kennlinien und Diagramme, standardisierte Prüfberichte als PDF oder Word, "
+            "Rückverfolgbarkeit von Rohdaten sowie die Ablösung manueller Auswertungen in "
+            "Excel und Word"
+        ),
+    },
 }
 
 # Ohne Anzeige (z. B. über die Navigation von ralfwbalz.ch): allgemein ein Softwareprojekt.
