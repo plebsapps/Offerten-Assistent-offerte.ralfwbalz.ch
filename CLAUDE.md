@@ -373,6 +373,10 @@ ein eigenes Login (`ADMIN_USER`, `ADMIN_PASSWORD_HASH`, Flag `admin` im Session-
 - **Abmelden** ist ein Formular per POST an `https://ralfwbalz.ch/abmelden` (dort ist diese
   Domain als zweite Herkunft zugelassen). `/admin/logout` gibt es nicht mehr; `/admin/login`
   leitet für alte Lesezeichen weiter.
+- Die öffentliche Navigation (fünf Seitenvorlagen, je Leiste und mobile Schublade) führt seit
+  10.10.2026 auch «Aufwandsrechner» (https://aufwandsrechner.ralfwbalz.ch). Mit zehn Punkten
+  schaltet die Leiste unter 1100px statt 900px auf das Hamburger-Menü; dieselben Werte stehen
+  in `~/ralfwbalz` und `~/aufwandsrechner`, dessen Navigation eine Kopie von hier ist.
 - `templates/admin/_intern_nav.html` ist die Leiste zum Wechseln zwischen Fachbeiträgen,
   Statistik, diesem Admin und (seit 10.10.2026) dem Admin des Aufwandsrechners
   (`~/aufwandsrechner`, eigenes Projekt). Wie `_footer.html` eine **Kopie aus
