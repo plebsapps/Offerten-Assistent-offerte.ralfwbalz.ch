@@ -99,6 +99,8 @@ templates.env.globals["homepage_url"] = HOMEPAGE_URL
 # routes_admin hat eine eigene Jinja-Umgebung; nur die Admin-Templates binden die Leiste ein.
 routes_admin.templates.env.globals["intern_haupt"] = HOMEPAGE_URL
 routes_admin.templates.env.globals["intern_offerte"] = ""
+routes_admin.templates.env.globals["intern_rechner"] = os.environ.get(
+    "AUFWANDSRECHNER_URL", "https://aufwandsrechner.ralfwbalz.ch").rstrip("/")
 # Logo der gemeinsamen Fussleiste (templates/_footer.html, Kopie aus ralfwbalz/).
 templates.env.globals["fuss_logo"] = "/static/img/logo-ralfwbalz.svg"
 

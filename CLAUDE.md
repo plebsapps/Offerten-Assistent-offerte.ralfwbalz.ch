@@ -374,9 +374,11 @@ ein eigenes Login (`ADMIN_USER`, `ADMIN_PASSWORD_HASH`, Flag `admin` im Session-
   Domain als zweite Herkunft zugelassen). `/admin/logout` gibt es nicht mehr; `/admin/login`
   leitet für alte Lesezeichen weiter.
 - `templates/admin/_intern_nav.html` ist die Leiste zum Wechseln zwischen Fachbeiträgen,
-  Statistik und diesem Admin. Wie `_footer.html` eine **Kopie aus `~/ralfwbalz/templates/`**,
-  die byte-identisch bleiben muss; die Basis-Adressen kommen als Jinja-Globals
-  (`intern_haupt` = `HOMEPAGE_URL`, `intern_offerte` leer) und werden in `main.py` auf
+  Statistik, diesem Admin und (seit 10.10.2026) dem Admin des Aufwandsrechners
+  (`~/aufwandsrechner`, eigenes Projekt). Wie `_footer.html` eine **Kopie aus
+  `~/ralfwbalz/templates/`**, die byte-identisch bleiben muss; die Basis-Adressen kommen als
+  Jinja-Globals (`intern_haupt` = `HOMEPAGE_URL`, `intern_offerte` leer, `intern_rechner` =
+  `AUFWANDSRECHNER_URL`, Standard `https://aufwandsrechner.ralfwbalz.ch`) und werden in `main.py` auf
   `routes_admin.templates` gesetzt, weil der Admin eine eigene Jinja-Umgebung hat.
 - Das Session-Cookie `session` bleibt ein Host-Cookie und trägt nur noch den Besucher-Zustand.
 - `ADMIN_USER` und `ADMIN_PASSWORD_HASH` gibt es in der `.env` nicht mehr. Der Hash wurde

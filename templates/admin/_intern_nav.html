@@ -1,9 +1,10 @@
 {# Leiste zum Wechseln zwischen den internen Bereichen: Fachbeiträge und Statistik auf
-   ralfwbalz.ch, Admin auf offerte.ralfwbalz.ch. Diese Datei liegt identisch in
-   ralfwbalz/templates/ und offerte/templates/admin/ – ralfwbalz ist die Vorlage, nach
-   einer Änderung dorthin kopieren. Was sich unterscheidet, kommt von aussen:
-   intern_haupt und intern_offerte (Jinja-Globals aus der jeweiligen main.py, auf der
-   eigenen Domain leer) und intern_aktiv (setzt die einbindende Vorlage).
+   ralfwbalz.ch, Admin auf offerte.ralfwbalz.ch und auf aufwandsrechner.ralfwbalz.ch.
+   Diese Datei liegt identisch in ralfwbalz/templates/, offerte/templates/admin/ und
+   aufwandsrechner/templates/ – ralfwbalz ist die Vorlage, nach einer Änderung dorthin
+   kopieren. Was sich unterscheidet, kommt von aussen: intern_haupt, intern_offerte und
+   intern_rechner (Jinja-Globals der jeweiligen App, auf der eigenen Domain leer) und
+   intern_aktiv (setzt die einbindende Vorlage).
    Die Leiste bringt ihr eigenes CSS mit, weil die drei Oberflächen drei verschiedene
    Stylesheets haben. #}
 <style>
@@ -22,5 +23,6 @@
   <a href="{{ intern_haupt }}/redaktion" class="{{ 'aktiv' if intern_aktiv == 'redaktion' else '' }}">Fachbeiträge</a>
   <a href="{{ intern_haupt }}/statistik" class="{{ 'aktiv' if intern_aktiv == 'statistik' else '' }}">Statistik</a>
   <a href="{{ intern_offerte }}/admin" class="{{ 'aktiv' if intern_aktiv == 'offerte' else '' }}">Offerten-Assistent</a>
+  <a href="{{ intern_rechner }}/admin" class="{{ 'aktiv' if intern_aktiv == 'rechner' else '' }}">Aufwandsrechner</a>
   <form method="post" action="{{ intern_haupt }}/abmelden"><button type="submit">Abmelden</button></form>
 </nav>
