@@ -17,6 +17,13 @@
   </div>
 </div>
 
+{% if kontext %}
+<details class="muted" style="margin:0 0 16px" open>
+  <summary><strong>Schätzung aus dem Aufwandsrechner</strong> (Kontext dieses Gesprächs)</summary>
+  <pre style="white-space:pre-wrap;font-family:inherit;margin:8px 0 0">{{ kontext }}</pre>
+</details>
+{% endif %}
+
 {% if history %}
 <div class="transkript">
   {% for m in history %}

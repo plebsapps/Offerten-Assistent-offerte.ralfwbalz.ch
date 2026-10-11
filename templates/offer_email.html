@@ -19,15 +19,17 @@
   <div style="margin:24px 0;text-align:center">
     <a href="{{ freigabe_url }}"
        style="background:#3B82F6;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;display:inline-block;font-weight:bold">
-      Offerte an den Auftraggeber freigeben &amp; senden
+      Offerte prüfen, Text ergänzen und senden
     </a>
     <p style="color:#94a3b8;font-size:12px;margin-top:8px">
       Die Offerte wurde <strong>nicht</strong> automatisch an den Kunden gesendet.
-      Sie geht erst nach Klick auf diesen Link an {{ o.kunde.email or 'den Kunden' }}.
+      Der Link öffnet eine Seite mit Ihrem Text an den Kunden; gesendet wird erst dort,
+      an {{ o.kunde.email or 'den Kunden' }}.
     </p>
   </div>
 
-  <p style="color:#64748b;font-size:13px">Das vollständige Angebot liegt als PDF im Anhang.</p>
+  <p style="color:#64748b;font-size:13px">Das vollständige Angebot liegt als PDF im Anhang{% if mit_schaetzung %};
+     es enthält hinten die Aufwandsschätzung aus dem Aufwandsrechner{% endif %}.</p>
 
   <h3 style="color:#1B2A4A;margin-top:30px">Gesprächsprotokoll</h3>
   <div style="background:#f8fafc;padding:14px;border-radius:4px;white-space:pre-line;font-size:13px;color:#475569">{{ transcript }}</div>

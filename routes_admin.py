@@ -192,6 +192,7 @@ async def gespraech_detail(request: Request, session_id: str,
         "tokens_in": tokens_in,
         "tokens_out": tokens_out,
         "anzeige": themen.titel(db.get_session_thema(session_id)),
+        "kontext": db.get_session_kontext(session_id),
         "offerte": db.get_offer_by_session(session_id),
     })
 
@@ -207,7 +208,9 @@ async def offerten(request: Request, _: None = Depends(auth.require_admin)):
             daten = json.loads(r["data_json"])
         except (ValueError, TypeError):
             daten = {}
-        offerten.append({**r, "daten": daten})
+        adresse = ((daten.get("kunde") or {}).get("email") or "") if isinstance(daten, dict) else ""
+        offerten.append({**r, "daten": daten,
+                         "bestaetigt": offer.adresse_bestaetigt(r["session_id"], adresse)})
     return templates.TemplateResponse("admin/offerten.html", {
         "request": request, "offerten": offerten})
 
@@ -219,16 +222,6 @@ async def offerte_pdf(request: Request, session_id: str,
     if row and row.get("pdf_path") and os.path.exists(row["pdf_path"]):
         return FileResponse(row["pdf_path"], media_type="application/pdf",
                             filename=f"offerte-{session_id}.pdf")
-    return _redirect("/admin/offerten")
-
-
-@router.post("/admin/offerten/{token}/freigeben")
-async def offerte_freigeben(request: Request, token: str,
-                            _: None = Depends(auth.require_admin)):
-    try:
-        offer.release_to_customer(token)  # idempotent (released_at)
-    except Exception as e:  # noqa: BLE001
-        logger.error("Freigabe aus Admin fehlgeschlagen: %s", e)
     return _redirect("/admin/offerten")
 
 

@@ -47,14 +47,47 @@
   </div>
   <main class="wrap">
     <div class="chat" style="padding:28px">
-      {% if status == "gesendet" %}
+      {% if status == "entwurf" %}
+        {# Erst diese Seite sendet – der Link in der Mail allein tut nichts. #}
+        <h1 style="color:#1B2A4A;margin-top:0">Offerte prüfen und senden</h1>
+        <p style="line-height:1.7;margin-bottom:6px">
+          <strong>Projekt:</strong> {{ titel }}<br>
+          <strong>Kunde:</strong> {{ kunde.name or "–" }}{% if kunde.firma %}, {{ kunde.firma }}{% endif %}<br>
+          <strong>Empfänger:</strong> {{ kunde.email or "–" }}<br>
+          <strong>Anhang:</strong> <a href="/freigabe/{{ token }}/pdf" target="_blank" rel="noopener" style="color:#3B82F6">offerte.pdf ansehen</a>
+          {% if mit_schaetzung %}(Offerten-Grundlage und dahinter die Aufwandsschätzung aus dem Aufwandsrechner){% endif %}
+        </p>
+        {% if fehler %}<p style="background:#FEE2E2;color:#991B1B;padding:10px 12px;border-radius:6px">{{ fehler }}</p>{% endif %}
+        {% if bestaetigt %}
+        <form method="post" action="/freigabe/{{ token }}">
+          <label for="nachricht" style="display:block;font-weight:700;color:#1B2A4A;margin:16px 0 6px">Ihre Nachricht an den Kunden</label>
+          <p style="color:#64748b;font-size:.9rem;margin:0 0 8px">
+            Vorbelegt mit dem Standardtext. Ergänzen Sie Ihren Kommentar oder schreiben Sie den
+            Text um – so, wie er hier steht, geht er als E-Mail hinaus.
+          </p>
+          <textarea id="nachricht" name="nachricht" rows="14" maxlength="{{ hoechstens }}" required
+                    style="width:100%;box-sizing:border-box;padding:12px;font:inherit;line-height:1.5;border:1px solid #94A3B8;border-radius:6px">{{ text }}</textarea>
+          <p style="margin:14px 0 0">
+            <button type="submit" class="btn-primary"
+                    onclick="return confirm('Offerte jetzt an {{ kunde.email }} senden?');">Offerte jetzt senden</button>
+          </p>
+        </form>
+        {% else %}
+        <p style="background:#FEF3C7;color:#92400E;padding:10px 12px;border-radius:6px">
+          Für dieses Gespräch gibt es keine bestätigte E-Mail-Adresse. Die Offerte lässt sich
+          nicht per E-Mail freigeben; das PDF können Sie oben ansehen und selbst weitergeben.
+        </p>
+        {% endif %}
+      {% elif status == "gesendet" %}
         <h1 style="color:#16a34a;margin-top:0">Offerte freigegeben ✓</h1>
         <p>Die Offerte zu <strong>{{ titel }}</strong> wurde soeben an
            <strong>{{ kunde.email }}</strong> gesendet.</p>
+        {% if gesendeter_text %}<pre style="white-space:pre-wrap;font-family:inherit;background:#f8fafc;padding:12px;border-radius:6px">{{ gesendeter_text }}</pre>{% endif %}
       {% elif status == "bereits" %}
         <h1 style="color:#1B2A4A;margin-top:0">Bereits freigegeben</h1>
         <p>Diese Offerte zu <strong>{{ titel }}</strong> wurde bereits an
            <strong>{{ kunde.email }}</strong> gesendet. Es wurde nichts erneut versendet.</p>
+        {% if gesendeter_text %}<pre style="white-space:pre-wrap;font-family:inherit;background:#f8fafc;padding:12px;border-radius:6px">{{ gesendeter_text }}</pre>{% endif %}
       {% elif status == "fehler" %}
         <h1 style="color:#dc2626;margin-top:0">Versand fehlgeschlagen</h1>
         <p>Beim Senden an den Auftraggeber ist ein Fehler aufgetreten. Bitte prüfen Sie die

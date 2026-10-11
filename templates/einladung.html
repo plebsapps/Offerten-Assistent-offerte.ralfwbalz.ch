@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-{% include "_google_tag.html" %}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{% if selbst_zugang and thema.schluessel %}{{ thema.titel }}{% elif selbst_zugang %}Zugang zum Offerten-Assistenten{% else %}Zugang nur per Einladung{% endif %} – Offerten-Assistent</title>
@@ -191,6 +190,17 @@
       }
     });
 
+    {% if vorbelegt %}
+    // Übergabe aus dem Aufwandsrechner: der Code ist schon unterwegs, die Angaben sind bekannt.
+    formCode.anrede.value = {{ vorbelegt.anrede|tojson }};
+    formCode.name.value = {{ vorbelegt.name|tojson }};
+    formCode.email.value = {{ vorbelegt.email|tojson }};
+    zielEmail.textContent = formCode.email.value;
+    formCode.style.display = "none";
+    formVerify.style.display = "";
+    setStatus("Bitte bestätigen Sie Ihre E-Mail-Adresse mit dem Code. Danach beginnt das Gespräch mit Ihrer Schätzung.", true);
+    {% endif %}
+
     document.getElementById("neu-anfordern").addEventListener("click", () => {
       formVerify.style.display = "none";
       formCode.style.display = "";
@@ -198,7 +208,6 @@
     });
   </script>
   {% endif %}
-  <script src="/static/js/einwilligung.js?v=3"></script>
   <script src="/static/js/logo.js"></script>
 </body>
 </html>

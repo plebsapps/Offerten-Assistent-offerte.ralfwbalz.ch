@@ -10,3 +10,5 @@ httpx==0.27.2
 weasyprint==62.3
 pydyf==0.10.0
 itsdangerous==2.2.0
+# Fügt die Aufwandsschätzung aus dem Rechner hinten an die Offerten-Grundlage an.
+pypdf==5.1.0

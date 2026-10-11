@@ -49,7 +49,6 @@ Keine Tests/Linter konfiguriert.
   (Default 3), `OTP_RESEND_SEKUNDEN` (Default 60), `MAX_ZUGANG_CODES_PER_IP` (Default 5,
   gleitendes 1-Stunden-Fenster pro IP). Nur wirksam im Einladungsmodus und wenn im Admin
   eingeschaltet (Setting `selbst_zugang`, gelesen über `settings.selbst_zugang_aktiv()`).
-- Google Ads: optional `GOOGLE_ADS_KONVERSION` – siehe *Google-Ads-Tag* weiter unten.
 
 ## Architektur
 
@@ -130,6 +129,50 @@ Keine Tests/Linter konfiguriert.
   `selbst_verifiziert` (damit ein Reload von `/` nicht erneut die Hinweisseite liefert –
   Token-Links bleiben dagegen pro Besuch zu prüfen) und `kontakt`; eine Info-Mail geht via `offer.notify_selbst_zugang`
   an `CONTACT_EMAIL`. Honeypot-Feld `website` wie beim Chat.
+- **Nur an bestätigte Adressen** (Ralfs Regel seit 11.10.2026, damit die Seite nicht zum
+  Spam-Versand taugt): Die Offerte geht ausschliesslich an die für das Gespräch bestätigte
+  Adresse – jene aus dem Code (`zugang_verify`) oder die des Einladungslinks, den Ralf selbst
+  verschickt hat. Sie steht in `sessions.kontakt_email` (`''` = keine, `NULL` = Gespräch aus der
+  Zeit davor). `offer.create_and_send` überschreibt `kunde.email` damit, egal was das Modell
+  ins Werkzeug schreibt; `offer.release_to_customer` sendet nur, wenn
+  `offer.adresse_bestaetigt()` zutrifft, sonst keine Mail (`nicht_bestaetigt`), und der Admin
+  zeigt statt des Freigabe-Knopfs einen Hinweis. Der Prompt verbietet zusätzlich, nach weiteren
+  Empfängern zu fragen oder eine andere Adresse anzunehmen – verlassen darf man sich aber nur
+  auf die serverseitige Sperre.
+- **Übergabe aus dem Aufwandsrechner** (`uebergabe.py`, seit 11.10.2026): der Rechner
+  (`~/aufwandsrechner`, eigenes Projekt) schickt Anrede, Name, E-Mail, Thema und die Schätzung
+  als Text von Server zu Server an `POST /uebergabe`. Angenommen wird nur mit gültiger
+  Signatur (HMAC über Zeitstempel + Rumpf, Schlüssel `sha256("uebergabe|" + ZUGANG_SCHLUESSEL)`,
+  Zeitfenster 60 s), sonst 403. Der Endpunkt legt die Übergabe ab (Tabelle `uebergaben`,
+  30 Minuten einlösbar, nach 24 Stunden gelöscht) und **verschickt sofort den Zugangscode**
+  an die Adresse (dieselben Bausteine wie der Self-Service; je Adresse höchstens einer pro
+  `OTP_RESEND_SEKUNDEN`, sonst 429). `GET /?u=<token>` schaltet nichts frei: es merkt Token
+  und Thema in der Sitzung, und `index()` zeigt – in jedem Zugangsmodus – `einladung.html`
+  direkt im Code-Schritt, vorbelegt mit den Angaben (`_wartende_uebergabe`). Freigeschaltet
+  wird nur in `zugang_verify`; bestätigt der Besucher genau die Adresse der Übergabe, geht die
+  Meldung an Ralf mit der Schätzung hinaus (`offer.notify_uebergabe`), bestätigt er eine
+  andere, wird die Übergabe vergessen. `_kontext()` liefert die Schätzung nur dem, der diese
+  Adresse bestätigt hat. Beim Beginn eines Gesprächs wandert sie nach `sessions.kontext` und
+  von dort in jeder Runde in den System-Prompt (`agent._kontext_hinweis`: Ausgangspunkt,
+  nichts doppelt fragen, keine Stunden zusagen; der Text gilt als Angabe, nicht als
+  Anweisung). `agent.begruessung(..., mit_schaetzung=True)` erwähnt sie – alle drei
+  Begrüssungs-Stellen müssen denselben Wert übergeben. Der Admin zeigt den Kontext über dem
+  Transkript. Das Gegenstück liegt in `~/aufwandsrechner/uebergabe.py`.
+  Mit der Übergabe reist das **PDF der Kalkulation** (Base64 im Rumpf, `uebergabe.pdf_lesen`
+  prüft und benennt es selbst); es liegt erst an der Übergabe, dann am Gespräch
+  (`sessions.schaetzung_pdf`). `offer.create_and_send` hängt es mit `pypdf` **hinten an die
+  Offerten-Grundlage** (`_zusammenfuegen`) – ein PDF für Ralfs Mail, den Admin und die
+  Freigabe; ob es geklappt hat, steht als `anhang_aufwandsschaetzung` in `data_json`. Lässt
+  sich das PDF des Rechners nicht lesen, bleibt die Offerte allein. Der Kunde bekommt am
+  Gesprächsende **nichts** – alles geht erst mit Ralfs Freigabe hinaus.
+- **Freigabe mit eigenem Text** (seit 11.10.2026): Der Link in Ralfs Mail
+  (`GET /freigabe/{token}`) **sendet nicht mehr**, er zeigt eine Seite mit Empfänger, Link
+  zum PDF (`/freigabe/{token}/pdf`) und einem Textfeld, vorbelegt mit
+  `offer.freigabe_standardtext()`. Erst `POST /freigabe/{token}` ruft
+  `offer.release_to_customer(token, nachricht)`; der Text wird für die HTML-Fassung maskiert,
+  in `offers.freigabe_text` vermerkt und ist im Admin aufklappbar. Vorher löste schon der
+  Abruf des Links den Versand aus – auch durch Mail-Scanner. Der Admin-Knopf führt auf
+  dieselbe Seite; den Endpunkt `POST /admin/offerten/{token}/freigeben` gibt es nicht mehr.
 - **Kurzanfrage** (`GET /kurzanfrage`, `templates/kurzanfrage.html`): der schnelle Weg ohne
   Gespräch, verlinkt von `einladung.html` (Button rechts neben LinkedIn, darüber ein grosses
   „ODER“; nur bei aktivem Self-Service). **Unabhängig vom Zugangsmodus** erreichbar, indexierbar,
@@ -250,36 +293,16 @@ Die Footer-Regeln in `style.css` haben dieselben Werte wie auf der Hauptseite (1
 Umbruch in eine Spalte ab 600 px); zusätzlich stehen nur `margin: 0`, `line-height: 1.6` und
 `display: block`, die dort aus dem globalen Reset kommen, und `flex-shrink: 0` für das
 Spalten-Layout hier. Es gibt **keinen Login-Link** mehr im Footer – der Admin-Bereich ist nur
-noch direkt über `/admin` erreichbar. „Cookie-Einstellungen" steht fest im Markup
-(`data-cookie-einstellungen`, `href="/impressum#google-ads"`): `einwilligung.js` bindet daran
-das Banner, auf Seiten ohne Google-Tag (`freigabe.html`) führt der Link ins Impressum.
+noch direkt über `/admin` erreichbar. Den Link „Cookie-Einstellungen" gibt es seit
+11.10.2026 nicht mehr (siehe unten).
 
-### Google-Ads-Tag & Einwilligungs-Banner
-Das Google-Ads-Tag (`AW-18481174898`, Konstante `GOOGLE_ADS_ID` in `main.py`) steht in
-`templates/_google_tag.html`, eingebunden direkt nach `<head>` in `index.html`,
-`einladung.html`, `kurzanfrage.html` und `impressum.html` – **nicht** in `freigabe.html` (Token-Seite für
-Auftraggeber, keine Anzeigen-Zielseite) und nicht im Admin. Dasselbe Tag, dasselbe Konto
-und dasselbe Banner wie auf ralfwbalz.ch, aber bewusst als eigene Kopie.
-
-Consent Mode im **Basis-Modus**: `gtag.js` wird erst nach „Zustimmen" geladen, eine Ablehnung
-heisst also gar keine Anfrage an Google. Die Wahl liegt im Cookie `werbe_einwilligung`
-(`ja`/`nein`, 12 Monate, `Domain=ralfwbalz.ch`) und gilt damit **gemeinsam mit ralfwbalz.ch** –
-wer dort gewählt hat, wird hier nicht erneut gefragt. Der Bannertext nennt deshalb beide
-Domains und muss mit `ralfwbalz/static/js/main.js` übereinstimmen. Lesen und Schreiben stehen
-in `_google_tag.html` (`googleAds.einwilligung()` / `.einwilligungMerken()`), das bis auf den
-Kommentar mit der Kopie in `ralfwbalz/` identisch ist; `Domain` wird nur auf dem echten Host
-gesetzt, lokal bleibt es ein Host-Cookie. Bis 01.10.2026 lag die Wahl pro Domain in
-`localStorage`: ein dortiges `nein` wird ins Cookie übernommen (und sticht ein `ja`), ein `ja`
-verfällt, weil es nur für eine Website gegeben wurde. Banner, Footer-Link
-„Cookie-Einstellungen" (Widerruf: löscht `_gcl*`/`_ga*`, auch auf `.ralfwbalz.ch`, wo gtag
-sie tatsächlich setzt, und lädt neu) und `window.googleAdsKonversion()` liegen in
-`static/js/einwilligung.js`.
-
-Die Conversion feuert in `app.js` beim Stream-Ereignis `offer_created`, nur mit Zustimmung
-und nur, wenn `GOOGLE_ADS_KONVERSION` gesetzt ist – das vollständige `send_to` der
-Conversion-Aktion „Offerte angefordert" (`AW-18481174898/<label>`), beim Import gelesen und
-als Jinja-Global an die Templates gegeben. Das Impressum hat den passenden Abschnitt
-`#google-ads`, auf den das Banner verlinkt.
+### Kein Google-Ads-Tag, kein Einwilligungs-Banner
+Bis 11.10.2026 trug die Seite das Google-Ads-Tag (`_google_tag.html`, `static/js/einwilligung.js`)
+samt Einwilligungs-Banner, dem mit ralfwbalz.ch geteilten Cookie `werbe_einwilligung` und dem
+Fusszeilen-Link «Cookie-Einstellungen». Ralf nutzt kein Google Ads; alles ist auf beiden
+Domains entfernt. Für Besucher bleibt das Sitzungs-Cookie. Ein Banner kommt nur zurück, wenn
+es wieder ein Tag gibt, das eines braucht. `GOOGLE_ADS_KONVERSION` kann noch in der `.env`
+stehen; gelesen wird es nicht mehr.
 
 ### Aufbewahrung (12 Monate)
 `db.alte_daten_loeschen(tage)` löscht, was älter als `AUFBEWAHRUNG_TAGE` (365, `main.py`) ist:

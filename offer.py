@@ -88,9 +88,25 @@ def create_and_send(session_id: str, data: dict) -> None:
     """Rendert die Offerte als PDF, speichert sie und mailt sie an Ralf (mit Freigabe-Link)."""
     pathlib.Path(OFFERS_DIR).mkdir(parents=True, exist_ok=True)
 
+    # Die Offerte geht nur an die bestätigte Adresse des Gesprächs – gleichgültig, was das
+    # Modell ins Werkzeug geschrieben hat oder worum im Gespräch gebeten wurde.
+    bestaetigt = db.get_session_kontakt_email(session_id)
+    if bestaetigt:
+        if not isinstance(data.get("kunde"), dict):
+            data["kunde"] = {}
+        data["kunde"]["email"] = bestaetigt
+
     token = secrets.token_urlsafe(24)
     history = db.get_history(session_id)
     pdf_bytes = _render_pdf(data)
+    # Kam der Kunde mit einer Schätzung aus dem Aufwandsrechner, wird sie hinten angefügt:
+    # ein PDF für Ralfs Mail, den Admin und die spätere Freigabe an den Kunden.
+    schaetzung = db.get_session_schaetzung(session_id)
+    mit_schaetzung = False
+    if schaetzung:
+        pdf_bytes, mit_schaetzung = _zusammenfuegen(pdf_bytes, schaetzung[0])
+    # Bei der Offerte vermerkt, damit die Freigabe-Seite sagt, was wirklich im PDF steckt.
+    data["anhang_aufwandsschaetzung"] = mit_schaetzung
 
     pdf_path = os.path.join(OFFERS_DIR, f"offerte-{session_id}.pdf")
     with open(pdf_path, "wb") as f:
@@ -98,11 +114,33 @@ def create_and_send(session_id: str, data: dict) -> None:
 
     db.save_offer(session_id, json.dumps(data, ensure_ascii=False), pdf_path, token)
     _send_to_ralf(data, history, pdf_bytes, token,
-                  anzeige=themen.titel(db.get_session_thema(session_id)))
+                  anzeige=themen.titel(db.get_session_thema(session_id)),
+                  mit_schaetzung=mit_schaetzung)
+
+
+def _zusammenfuegen(offerte_pdf: bytes, schaetzung_pdf: bytes) -> tuple[bytes, bool]:
+    """Hängt die Aufwandsschätzung aus dem Rechner hinten an die Offerten-Grundlage.
+
+    Gibt (PDF, angefügt?) zurück. Lässt sich das PDF des Rechners nicht lesen, bleibt es
+    bei der Offerte allein – wegen des Anhangs geht nie eine Offerte verloren."""
+    try:
+        import io
+        from pypdf import PdfReader, PdfWriter   # nur hier gebraucht
+
+        ziel = PdfWriter()
+        for quelle in (offerte_pdf, schaetzung_pdf):
+            for seite in PdfReader(io.BytesIO(quelle)).pages:
+                ziel.add_page(seite)
+        puffer = io.BytesIO()
+        ziel.write(puffer)
+        return puffer.getvalue(), True
+    except Exception as e:  # noqa: BLE001
+        logger.error("Aufwandsschätzung liess sich nicht anfügen: %s", e)
+        return offerte_pdf, False
 
 
 def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str,
-                  anzeige: str = "") -> None:
+                  anzeige: str = "", mit_schaetzung: bool = False) -> None:
     recipient = os.environ["CONTACT_EMAIL"]
     freigabe_url = f"{settings.basis_url()}/freigabe/{token}"
 
@@ -115,6 +153,7 @@ def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str,
         freigabe_url=freigabe_url,
         transcript=transcript,
         anzeige=anzeige,
+        mit_schaetzung=mit_schaetzung,
         erstellt=datetime.now().strftime("%d.%m.%Y um %H:%M Uhr"),
     )
     plain = (
@@ -124,9 +163,13 @@ def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str,
         f"Telefon: {kunde.get('telefon', '–')}\n"
         f"Anzeige: {anzeige or '–'}\n\n"
         f"Zusammenfassung:\n{data.get('zusammenfassung', '')}\n\n"
-        f"--- Diese Offerte an den Auftraggeber freigeben/senden: ---\n{freigabe_url}\n\n"
-        f"(Die Offerte wurde NICHT automatisch an den Kunden gesendet.)\n\n"
-        f"===== Gesprächsprotokoll =====\n{transcript}\n"
+        f"--- Offerte prüfen, Text ergänzen und an den Auftraggeber senden: ---\n{freigabe_url}\n\n"
+        f"(Die Offerte wurde NICHT automatisch an den Kunden gesendet. Der Link öffnet eine "
+        f"Seite mit Ihrem Text an den Kunden; gesendet wird erst dort.)\n\n"
+        + ("Das PDF im Anhang enthält hinten die Aufwandsschätzung aus dem Aufwandsrechner; "
+           "der Kunde bekommt genau dieses PDF mit der Freigabe.\n\n"
+           if mit_schaetzung else "")
+        + f"===== Gesprächsprotokoll =====\n{transcript}\n"
     )
     _smtp_send(
         recipient=recipient,
@@ -139,9 +182,36 @@ def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str,
     )
 
 
-def release_to_customer(token: str) -> dict | None:
+def adresse_bestaetigt(session_id: str, adresse: str) -> bool:
+    """True, wenn die Offerte an diese Adresse gehen darf: sie ist die für das Gespräch
+    bestätigte (Code oder von Ralf verschickter Einladungslink). Gespräche aus der Zeit
+    vor dieser Regel (``None``) bleiben freigebbar – Ralf gibt sie von Hand frei."""
+    bestaetigt = db.get_session_kontakt_email(session_id)
+    if bestaetigt is None:
+        return True
+    return bool(bestaetigt) and bestaetigt == (adresse or "").strip().lower()
+
+
+NACHRICHT_HOECHSTENS = 5000
+
+
+def freigabe_standardtext(data: dict) -> str:
+    """Der Text an den Kunden, wie er ohne Änderung hinausginge. Die Freigabe-Seite zeigt
+    ihn im Textfeld, Ralf ergänzt oder ersetzt ihn dort."""
+    kunde = data.get("kunde") or {}
+    titel = data.get("projekt_titel", "IT-Projekt")
+    return (
+        f"Guten Tag {kunde.get('name', '')}".rstrip() + "\n\n"
+        "vielen Dank für das Gespräch. Im Anhang finden Sie die Offerten-Grundlage zu Ihrem "
+        f"Projekt „{titel}“. Ich melde mich für die weiteren Schritte persönlich bei Ihnen.\n\n"
+        "Freundliche Grüsse\nRalf W. Balz\nralfwbalz.ch"
+    )
+
+
+def release_to_customer(token: str, nachricht: str | None = None) -> dict | None:
     """Sendet die freigegebene Offerte an den Auftraggeber. Idempotent (einmalig einlösbar).
 
+    ``nachricht``: Ralfs Text an den Kunden von der Freigabe-Seite; leer = Standardtext.
     Rückgabe: das Offer-Dict bei Erfolg, None wenn Token unbekannt.
     """
     row = db.get_offer_by_token(token)
@@ -155,7 +225,11 @@ def release_to_customer(token: str) -> dict | None:
     customer_email = (kunde.get("email") or "").strip()
     if not customer_email:
         logger.error("Offerte %s hat keine Kunden-E-Mail.", token)
-        return row
+        return {**row, "nicht_bestaetigt": True}
+    if not adresse_bestaetigt(row["session_id"], customer_email):
+        # Kein Versand an eine Adresse, die niemand per Code bestätigt hat.
+        logger.error("Offerte %s: Adresse nicht bestätigt, kein Versand.", token)
+        return {**row, "nicht_bestaetigt": True}
 
     pdf_path = row.get("pdf_path")
     if pdf_path and os.path.exists(pdf_path):
@@ -165,21 +239,14 @@ def release_to_customer(token: str) -> dict | None:
         pdf_bytes = _render_pdf(data)
 
     titel = data.get("projekt_titel", "IT-Projekt")
-    plain = (
-        f"Guten Tag {kunde.get('name', '')}\n\n"
-        f"vielen Dank für das Gespräch. Im Anhang finden Sie die Offerten-Grundlage zu Ihrem "
-        f"Projekt „{titel}“. Ralf W. Balz meldet sich für die weiteren Schritte persönlich bei Ihnen.\n\n"
-        f"Freundliche Grüsse\nRalf W. Balz\nralfwbalz.ch"
-    )
-    html = (
-        f'<div style="font-family:Arial,sans-serif;max-width:600px;color:#333">'
-        f'<p>Guten Tag {kunde.get("name", "")}</p>'
-        f'<p>vielen Dank für das Gespräch. Im Anhang finden Sie die Offerten-Grundlage zu Ihrem '
-        f'Projekt &bdquo;{titel}&ldquo;. Ralf W. Balz meldet sich für die weiteren Schritte '
-        f'persönlich bei Ihnen.</p>'
-        f'<p>Freundliche Grüsse<br>Ralf W. Balz<br>'
-        f'<a href="https://ralfwbalz.ch">ralfwbalz.ch</a></p></div>'
-    )
+    plain = (nachricht or "").replace("\r\n", "\n").replace("\r", "\n").strip()[:NACHRICHT_HOECHSTENS]
+    if not plain:
+        plain = freigabe_standardtext(data)
+    # Für die HTML-Fassung maskiert: aus dem Textfeld gelangt kein Markup in die Mail.
+    html = ('<div style="font-family:Arial,sans-serif;max-width:600px;color:#333">'
+            + "".join(f"<p>{html_lib.escape(absatz).replace(chr(10), '<br>')}</p>"
+                      for absatz in plain.split("\n\n") if absatz.strip())
+            + "</div>")
     _smtp_send(
         recipient=customer_email,
         subject=f"Ihre Offerten-Grundlage: {titel} – ralfwbalz.ch",
@@ -189,7 +256,7 @@ def release_to_customer(token: str) -> dict | None:
         pdf_name="offerte.pdf",
         reply_to=os.environ.get("CONTACT_EMAIL"),
     )
-    db.mark_released(token)
+    db.mark_released(token, plain)
     return row
 
 
@@ -379,6 +446,40 @@ def send_kurzanfrage_an_ralf(thema: str, text: str, email: str) -> None:
         html=html,
         plain=plain,
         reply_to=email,
+    )
+
+
+def notify_uebergabe(empfaenger_email: str, anrede: str, name: str, kontext: str) -> None:
+    """Info-Mail an Ralf, wenn jemand mit einer Schätzung aus dem Aufwandsrechner in den
+    Chat kommt. Die Adresse ist dabei **nicht** per Code bestätigt."""
+    empfaenger = os.environ.get("CONTACT_EMAIL")
+    if not empfaenger:
+        return
+    person = " ".join(t for t in (anrede, name) if t).strip() or "—"
+    zeitpunkt = datetime.now().strftime("%d.%m.%Y um %H:%M Uhr")
+    plain = (
+        "Jemand ist mit einer Schätzung aus dem Aufwandsrechner in den Offerten-Assistenten "
+        "gekommen:\n\n"
+        f"Name/Anrede: {person}\n"
+        f"E-Mail:      {empfaenger_email} (nicht per Code bestätigt)\n"
+        f"Zeitpunkt:   {zeitpunkt}\n\n"
+        "SCHÄTZUNG\n"
+        f"{kontext}\n"
+    )
+    html = (
+        "<p>Jemand ist mit einer Schätzung aus dem Aufwandsrechner in den "
+        "Offerten-Assistenten gekommen:</p>"
+        f"<p><strong>Name/Anrede:</strong> {html_lib.escape(person)}<br>"
+        f"<strong>E-Mail:</strong> {html_lib.escape(empfaenger_email)} (nicht per Code bestätigt)<br>"
+        f"<strong>Zeitpunkt:</strong> {zeitpunkt}</p>"
+        f"<pre style=\"font-family:Arial,sans-serif;white-space:pre-wrap\">{html_lib.escape(kontext)}</pre>"
+    )
+    _smtp_send(
+        recipient=empfaenger,
+        subject=f"Aufwandsrechner → Offerten-Assistent: {person}",
+        html=html,
+        plain=plain,
+        reply_to=empfaenger_email,
     )
 
 

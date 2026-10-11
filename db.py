@@ -86,6 +86,17 @@ def init() -> None:
                 versuche        INTEGER NOT NULL DEFAULT 0,
                 bestaetigt_am   TEXT
             );
+            CREATE TABLE IF NOT EXISTS uebergaben (
+                token           TEXT PRIMARY KEY,
+                created_at      TEXT NOT NULL,
+                gueltig_bis     TEXT NOT NULL,
+                anrede          TEXT,
+                name            TEXT,
+                email           TEXT,
+                thema           TEXT NOT NULL DEFAULT '',
+                kontext         TEXT NOT NULL DEFAULT '',
+                eingeloest_am   TEXT
+            );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
             CREATE INDEX IF NOT EXISTS idx_zugang_codes_email ON zugang_codes(email);
             CREATE INDEX IF NOT EXISTS idx_kurzanfragen_email ON kurzanfragen(email);
@@ -100,6 +111,31 @@ def init() -> None:
         # Migration: Anzeigenthema je Gespräch (Schlüssel aus themen.py, '' = ohne Anzeige).
         try:
             c.execute("ALTER TABLE sessions ADD COLUMN thema TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # Spalte existiert bereits
+        # Migration: Schätzung aus dem Aufwandsrechner je Gespräch ('' = keine Übergabe).
+        try:
+            c.execute("ALTER TABLE sessions ADD COLUMN kontext TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # Spalte existiert bereits
+        # Migration: Text, mit dem Ralf die Offerte an den Kunden freigegeben hat.
+        try:
+            c.execute("ALTER TABLE offers ADD COLUMN freigabe_text TEXT")
+        except sqlite3.OperationalError:
+            pass  # Spalte existiert bereits
+        # Migration: PDF der Schätzung aus dem Aufwandsrechner – an der Übergabe und, sobald
+        # das Gespräch beginnt, am Gespräch (dort lebt es so lange wie dieses).
+        for tabelle, spalten in (("uebergaben", ("pdf BLOB", "pdf_name TEXT")),
+                                 ("sessions", ("schaetzung_pdf BLOB", "schaetzung_name TEXT"))):
+            for spalte in spalten:
+                try:
+                    c.execute(f"ALTER TABLE {tabelle} ADD COLUMN {spalte}")
+                except sqlite3.OperationalError:
+                    pass  # Spalte existiert bereits
+        # Migration: bestätigte E-Mail-Adresse je Gespräch. NULL = Gespräch von vor dieser
+        # Spalte (Altbestand), '' = keine bestätigte Adresse, sonst die Adresse.
+        try:
+            c.execute("ALTER TABLE sessions ADD COLUMN kontakt_email TEXT")
         except sqlite3.OperationalError:
             pass  # Spalte existiert bereits
         # Migration: Empfänger-Daten je Einladungslink nachrüsten.
@@ -120,12 +156,81 @@ def session_exists(session_id: str) -> bool:
         return row is not None
 
 
-def create_session(session_id: str, ip: str, thema: str = "") -> None:
+def create_session(session_id: str, ip: str, thema: str = "", kontext: str = "",
+                   kontakt_email: str = "", schaetzung_pdf: bytes | None = None,
+                   schaetzung_name: str = "") -> None:
+    """``kontakt_email``: die für dieses Gespräch bestätigte Adresse ('' = keine). Nur an
+    sie darf die Offerte später gehen. ``schaetzung_pdf``: PDF aus dem Aufwandsrechner."""
     with _conn() as c:
         c.execute(
-            "INSERT OR IGNORE INTO sessions (id, created_at, ip, thema) VALUES (?, ?, ?, ?)",
-            (session_id, _now(), ip, thema),
+            "INSERT OR IGNORE INTO sessions (id, created_at, ip, thema, kontext, kontakt_email, "
+            "schaetzung_pdf, schaetzung_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (session_id, _now(), ip, thema, kontext, kontakt_email.strip().lower(),
+             schaetzung_pdf, schaetzung_name),
         )
+
+
+def get_session_schaetzung(session_id: str) -> tuple[bytes, str] | None:
+    """PDF der Schätzung aus dem Aufwandsrechner samt Dateiname, falls das Gespräch mit
+    einer Übergabe begann."""
+    with _conn() as c:
+        row = c.execute("SELECT schaetzung_pdf, schaetzung_name FROM sessions WHERE id = ?",
+                        (session_id,)).fetchone()
+    if row is None or not row["schaetzung_pdf"]:
+        return None
+    return bytes(row["schaetzung_pdf"]), row["schaetzung_name"] or "Aufwandsschaetzung.pdf"
+
+
+def get_session_kontakt_email(session_id: str) -> str | None:
+    """Bestätigte Adresse des Gesprächs: '' = keine, None = Gespräch aus der Zeit vor
+    dieser Angabe (oder unbekannt)."""
+    with _conn() as c:
+        row = c.execute("SELECT kontakt_email FROM sessions WHERE id = ?",
+                        (session_id,)).fetchone()
+        return row["kontakt_email"] if row else None
+
+
+def get_session_kontext(session_id: str) -> str:
+    """Schätzung aus dem Aufwandsrechner, mit der das Gespräch begann ('' = keine)."""
+    with _conn() as c:
+        row = c.execute("SELECT kontext FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        return (row["kontext"] or "") if row else ""
+
+
+# ---------------------------------------------------------- Übergaben -----
+
+def create_uebergabe(token: str, anrede: str, name: str, email: str, thema: str,
+                     kontext: str, gueltig_bis: str, pdf: bytes | None = None,
+                     pdf_name: str = "") -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO uebergaben (token, created_at, gueltig_bis, anrede, name, email, "
+            "thema, kontext, pdf, pdf_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (token, _now(), gueltig_bis, anrede, name, email, thema, kontext, pdf, pdf_name),
+        )
+
+
+def get_uebergabe(token: str) -> dict | None:
+    with _conn() as c:
+        row = c.execute("SELECT * FROM uebergaben WHERE token = ?", (token,)).fetchone()
+        return dict(row) if row else None
+
+
+def uebergabe_einloesen(token: str) -> bool:
+    """Vermerkt die erste Einlösung. True nur beim ersten Mal – so geht genau eine
+    Meldung an Ralf hinaus, auch wenn der Besucher die Seite neu lädt."""
+    with _conn() as c:
+        cur = c.execute(
+            "UPDATE uebergaben SET eingeloest_am = ? WHERE token = ? AND eingeloest_am IS NULL",
+            (_now(), token))
+        return cur.rowcount == 1
+
+
+def alte_uebergaben_loeschen(stunden: int = 24) -> int:
+    """Übergaben sind Durchgangsdaten: der Kontext steht danach am Gespräch."""
+    grenze = (datetime.now() - timedelta(hours=stunden)).isoformat(timespec="seconds")
+    with _conn() as c:
+        return c.execute("DELETE FROM uebergaben WHERE created_at < ?", (grenze,)).rowcount
 
 
 def get_session_thema(session_id: str) -> str:
@@ -188,11 +293,12 @@ def get_offer_by_token(token: str) -> dict | None:
         return dict(row) if row else None
 
 
-def mark_released(token: str) -> None:
+def mark_released(token: str, text: str = "") -> None:
+    """Vermerkt die Freigabe samt dem Text, der an den Kunden ging."""
     with _conn() as c:
         c.execute(
-            "UPDATE offers SET released_at = ? WHERE freigabe_token = ?",
-            (_now(), token),
+            "UPDATE offers SET released_at = ?, freigabe_text = ? WHERE freigabe_token = ?",
+            (_now(), text, token),
         )
 
 
@@ -458,7 +564,7 @@ def list_offers() -> list[dict]:
     with _conn() as c:
         rows = c.execute(
             "SELECT id, session_id, data_json, pdf_path, freigabe_token, "
-            "released_at, created_at FROM offers ORDER BY created_at DESC"
+            "released_at, freigabe_text, created_at FROM offers ORDER BY created_at DESC"
         ).fetchall()
         return [dict(r) for r in rows]
 

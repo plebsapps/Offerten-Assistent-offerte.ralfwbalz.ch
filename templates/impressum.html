@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-{% include "_google_tag.html" %}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="index, follow">
@@ -89,6 +88,18 @@
         Kurzanfragen 12 Monate nach der Anforderung. Auf Anfrage löschen wir sie auch früher (siehe unten).
       </p>
 
+      <h2 style="color:#1B2A4A;font-size:1.1rem">Übergabe aus dem Aufwandsrechner</h2>
+      <p>
+        Kommen Sie über «Schätzung mit dem KI-Assistenten verfeinern» aus dem Aufwandsrechner
+        (aufwandsrechner.ralfwbalz.ch), werden die dort angegebene Anrede, Ihr Name, Ihre
+        E-Mail-Adresse sowie Ihre Schätzung mit allen Angaben an diesen Assistenten übergeben.
+        Sie erhalten einen Code per E-Mail; erst nach dessen Eingabe beginnt das Gespräch.
+        Ihre Aufwandsschätzung erhalten Sie zusammen mit der Offerten-Grundlage als PDF an diese Adresse.
+        Die Schätzung ist dann Teil des Gesprächs und wird wie dieses an den KI-Dienst
+        übermittelt und mit dem Gespräch gespeichert und gelöscht. Ralf&nbsp;W.&nbsp;Balz
+        erhält eine Meldung über die Übergabe.
+      </p>
+
       <h2 style="color:#1B2A4A;font-size:1.1rem">Server-Logfiles und Besucherstatistik</h2>
       <p>
         Der Webserver protokolliert jeden Zugriff mit IP-Adresse, Browsertyp, Betriebssystem,
@@ -101,36 +112,13 @@
 
       <h2 style="color:#1B2A4A;font-size:1.1rem">Cookies</h2>
       <p>
-        Ohne Ihre Einwilligung setzt diese Website keine Tracking- oder Werbe-Cookies.
-        Technisch notwendig sind ein Sitzungs-Cookie für den Zugang zum Assistenten und das
-        Cookie <code>werbe_einwilligung</code>, das Ihre Wahl im Einwilligungs-Banner für
-        12 Monate festhält. Es gilt für ralfwbalz.ch und offerte.ralfwbalz.ch gemeinsam,
-        damit Sie nur einmal gefragt werden. Kommen Sie über eine Anzeige auf diese Website,
+        Diese Website setzt keine Tracking- oder Werbe-Cookies und bindet keine Werbedienste
+        ein. Technisch notwendig ist ein Sitzungs-Cookie für den Zugang zum Assistenten.
+        Kommen Sie über eine Anzeige auf diese Website,
         merkt sich das Sitzungs-Cookie zudem deren Thema (zum Beispiel «Datenmigration»),
         damit die Seite und der Assistent darauf eingehen können, auch wenn Sie sich
         zwischendurch umsehen. Das Thema wird mit einem Gespräch gespeichert, das Sie mit
         dem Assistenten führen.
-      </p>
-
-      <h2 id="google-ads" style="color:#1B2A4A;font-size:1.1rem">Google Ads (Conversion-Tracking)</h2>
-      <p>
-        Dieser Assistent wird mit Anzeigen bei Google beworben. Um zu erkennen, ob eine Anzeige
-        zu einer Offerte geführt hat, kann er das Google-Tag (gtag.js) von Google Ads laden.
-        Anbieter ist Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland;
-        Daten können auch an Google LLC in den USA übermittelt werden.
-      </p>
-      <ul>
-        <li>Das Google-Tag wird <strong>erst nach Ihrer Zustimmung</strong> im Banner geladen. Lehnen Sie ab, wird keine Verbindung zu Google aufgebaut.</li>
-        <li>Ihre Wahl gilt für ralfwbalz.ch und offerte.ralfwbalz.ch gemeinsam; beide Websites verwenden dasselbe Google-Tag.</li>
-        <li>Nach der Zustimmung setzt Google Cookies (z.&nbsp;B. <code>_gcl_au</code>) und erhält unter anderem Ihre IP-Adresse, Browserdaten, die besuchte Seite und die Information, dass eine Offerte erstellt wurde. Gesprächsinhalt und Kontaktdaten werden nicht an Google übermittelt.</li>
-        <li>Zweck: Messung des Erfolgs von Werbeanzeigen</li>
-        <li>Rechtsgrundlage: Ihre Einwilligung (Art. 6 Abs. 1 lit. a DSGVO)</li>
-        <li>Speicherdauer: Die Cookies von Google laufen nach höchstens 90 Tagen ab.</li>
-        <li>Widerruf: jederzeit über den Link <em>Cookie-Einstellungen</em> in der Fusszeile, mit Wirkung für beide Websites.</li>
-      </ul>
-      <p>
-        Weitere Informationen:
-        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#3B82F6">Datenschutzerklärung von Google</a>
       </p>
 
       <h2 style="color:#1B2A4A;font-size:1.1rem">Kontakt &amp; Löschung</h2>
@@ -143,7 +131,6 @@
     </div>
   </main>
   {% include "_footer.html" %}
-  <script src="/static/js/einwilligung.js?v=3"></script>
   <script src="/static/js/logo.js"></script>
 </body>
 </html>

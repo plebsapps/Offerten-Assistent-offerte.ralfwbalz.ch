@@ -29,6 +29,7 @@ import voice
 import auth
 import settings
 import themen
+import uebergabe
 import routes_admin
 
 load_dotenv()
@@ -104,14 +105,6 @@ routes_admin.templates.env.globals["intern_rechner"] = os.environ.get(
 # Logo der gemeinsamen Fussleiste (templates/_footer.html, Kopie aus ralfwbalz/).
 templates.env.globals["fuss_logo"] = "/static/img/logo-ralfwbalz.svg"
 
-# Google Ads: das Tag steht in templates/_google_tag.html und lädt erst nach
-# der Zustimmung im Banner (static/js/einwilligung.js). GOOGLE_ADS_KONVERSION ist
-# das vollständige send_to der Conversion-Aktion "Offerte angefordert"
-# (AW-…/Label); leer = das Tag läuft, meldet aber keine Conversion.
-GOOGLE_ADS_ID = "AW-18481174898"
-templates.env.globals["google_ads_id"] = GOOGLE_ADS_ID
-templates.env.globals["google_ads_konversion"] = os.environ.get("GOOGLE_ADS_KONVERSION", "").strip()
-
 # Self-Service-Zugang (E-Mail-Code/OTP)
 OTP_TTL_MIN = int(os.environ.get("OTP_TTL_MIN", "10"))          # Gültigkeit des Codes
 OTP_MAX_VERSUCHE = int(os.environ.get("OTP_MAX_VERSUCHE", "3"))  # Eingabeversuche je Code
@@ -146,6 +139,7 @@ AUFRAEUMEN_INTERVALL = 24 * 3600  # einmal täglich, erster Lauf beim Start
 
 def _aufraeumen() -> None:
     try:
+        db.alte_uebergaben_loeschen()
         anzahl = db.alte_daten_loeschen(AUFBEWAHRUNG_TAGE)
         if any(anzahl.values()):
             logger.info("Aufbewahrung: gelöscht %s", anzahl)
@@ -208,6 +202,52 @@ def _zugangslink_gueltig(row: dict | None) -> bool:
     return True
 
 
+def _bestaetigte_uebergabe(request: Request) -> dict | None:
+    """Übergabe aus dem Aufwandsrechner dieser Browser-Session – nur für den, der genau
+    deren Adresse per Code bestätigt hat. In der Sitzung steht nur der Token; Schätzung und
+    PDF liegen in ``uebergaben`` und werden beim Beginn eines Gesprächs an dieses gehängt."""
+    token = request.session.get("uebergabe") or ""
+    eintrag = db.get_uebergabe(token) if token else None
+    if eintrag is None:
+        return None
+    bestaetigt = ((request.session.get("kontakt") or {}).get("email") or "").lower()
+    if not request.session.get("selbst_verifiziert") or bestaetigt != (eintrag.get("email") or ""):
+        return None
+    return eintrag
+
+
+def _kontext(request: Request) -> str:
+    """Schätzung aus dem Aufwandsrechner als Text ('' = keine bestätigte Übergabe)."""
+    eintrag = _bestaetigte_uebergabe(request)
+    return (eintrag.get("kontext") or "") if eintrag else ""
+
+
+def _wartende_uebergabe(request: Request) -> dict | None:
+    """Übergabe aus dem Aufwandsrechner, deren Adresse noch nicht per Code bestätigt ist."""
+    token = request.session.get("uebergabe") or ""
+    eintrag = db.get_uebergabe(token) if token else None
+    if eintrag is None or eintrag.get("eingeloest_am"):
+        return None
+    return eintrag
+
+
+def _uebergabe_einloesen(request: Request) -> None:
+    """Merkt ``?u=<token>`` in der Sitzung – und schaltet **nichts** frei.
+
+    Der Besucher muss seine Adresse danach wie jeder andere mit dem Code bestätigen
+    (``zugang_verify``); den Code hat ``POST /uebergabe`` schon verschickt. Bis dahin gibt
+    es weder Chat noch Kontext. Ein unbekannter oder abgelaufener Token ändert nichts."""
+    token = (request.query_params.get("u") or "").strip()
+    if not token:
+        return
+    eintrag = db.get_uebergabe(token)
+    if eintrag is None or eintrag["gueltig_bis"] < db._now():
+        return
+    request.session["uebergabe"] = token
+    if themen.bekannt(eintrag.get("thema") or ""):
+        request.session["thema"] = eintrag["thema"]
+
+
 def _thema(request: Request) -> dict:
     """Anzeigenthema dieser Browser-Session (``themen.STANDARD``, wenn es keine Anzeige gab).
 
@@ -224,7 +264,20 @@ async def index(request: Request):
     adgroup = (request.query_params.get("adgroup") or "").strip()
     if themen.bekannt(adgroup):
         request.session["thema"] = adgroup
+    # Übergabe aus dem Aufwandsrechner (?u=<token>), siehe uebergabe.py.
+    _uebergabe_einloesen(request)
     thema = _thema(request)
+
+    # Wartet eine Übergabe aus dem Aufwandsrechner auf ihren Code, kommt – in jedem
+    # Zugangsmodus – zuerst die Code-Eingabe, vorbelegt mit den Angaben von dort.
+    wartend = _wartende_uebergabe(request)
+    if wartend is not None:
+        return templates.TemplateResponse(
+            "einladung.html",
+            {"request": request, "selbst_zugang": True, "thema": thema,
+             "vorbelegt": {"anrede": wartend.get("anrede") or "", "name": wartend.get("name") or "",
+                           "email": wartend.get("email") or ""}},
+        )
 
     if settings.zugangsmodus() == "einladung":
         # Bei JEDEM Besuch der Startseite ist ein gültiger Einladungslink (?z=<token>) nötig.
@@ -261,7 +314,7 @@ async def index(request: Request):
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "homepage_url": HOMEPAGE_URL, "thema": thema,
-         "begruessung": agent.begruessung(kontakt, thema)},
+         "begruessung": agent.begruessung(kontakt, thema, bool(_kontext(request)))},
     )
 
 
@@ -346,11 +399,55 @@ def _code_stimmt(eingabe: str, erwartet: str) -> bool:
     return hmac.compare_digest(eingabe.encode(), erwartet.encode())
 
 
+@app.post("/uebergabe")
+async def uebergabe_annehmen(request: Request):
+    """Nimmt Kontakt und Schätzung vom Aufwandsrechner entgegen (Server zu Server).
+
+    Nur mit gültiger Signatur; alles andere ist 403, ohne Hinweis worauf es ankam. Der
+    Rumpf wird trotz Signatur geprüft und begrenzt – er landet im System-Prompt."""
+    rumpf = await request.body()
+    if len(rumpf) > uebergabe.RUMPF_HOECHSTENS or not uebergabe.signatur_gueltig(
+            request.headers.get(uebergabe.KOPF_ZEIT),
+            request.headers.get(uebergabe.KOPF_SIGNATUR), rumpf):
+        return JSONResponse({"error": "Nicht erlaubt."}, status_code=403)
+    try:
+        daten = json.loads(rumpf)
+        email = str(daten.get("email") or "").strip().lower()
+        name = " ".join(str(daten.get("name") or "").split())[:80]
+        anrede = str(daten.get("anrede") or "").strip()
+        thema = str(daten.get("thema") or "").strip()
+        kontext = str(daten.get("kontext") or "").strip()[:uebergabe.KONTEXT_HOECHSTENS]
+        pdf, pdf_name = uebergabe.pdf_lesen(daten.get("pdf"), daten.get("nummer"))
+    except (ValueError, AttributeError):
+        return JSONResponse({"error": "Ungültige Daten."}, status_code=400)
+    if not _email_plausibel(email) or not name or anrede not in uebergabe.ANREDEN or not kontext:
+        return JSONResponse({"error": "Ungültige Daten."}, status_code=400)
+    token = secrets.token_urlsafe(32)
+    gueltig_bis = (datetime.now() + timedelta(minutes=uebergabe.GUELTIG_MINUTEN)
+                   ).isoformat(timespec="seconds")
+    # Ohne bestätigte Adresse kein Chat: der Code geht jetzt hinaus, der Besucher gibt ihn
+    # nach der Weiterleitung hier ein. Sperre je Adresse wie beim Self-Service.
+    letzter = db.letzter_code_zeitpunkt(email)
+    if letzter and (datetime.now() - datetime.fromisoformat(letzter)).total_seconds() < OTP_RESEND_SEKUNDEN:
+        return JSONResponse({"error": "Es wurde gerade ein Code gesendet."}, status_code=429)
+    code = _neuer_code()
+    code_bis = (datetime.now() + timedelta(minutes=OTP_TTL_MIN)).isoformat(timespec="seconds")
+    db.create_zugang_code(email, anrede, name, code, "aufwandsrechner", code_bis)
+    try:
+        offer.send_zugang_code(email, code, anrede, name, ttl_min=OTP_TTL_MIN)
+    except Exception as e:  # noqa: BLE001
+        logger.error("Zugangscode-Mail (Übergabe) fehlgeschlagen: %s", e)
+        return JSONResponse({"error": "Der Code konnte nicht versendet werden."}, status_code=502)
+    db.create_uebergabe(token, anrede, name, email, thema if themen.bekannt(thema) else "",
+                        kontext, gueltig_bis, pdf, pdf_name)
+    return JSONResponse({"token": token, "url": f"{settings.basis_url()}/?u={token}"})
+
+
 @app.post("/zugang/code")
 async def zugang_code(request: Request, anrede: str = Form(""), name: str = Form(""),
                       email: str = Form(""), website: str = Form("")):
     """Self-Service: fordert einen 6-stelligen Zugangscode per E-Mail an."""
-    if not _selbst_zugang_offen():
+    if not _selbst_zugang_offen() and _wartende_uebergabe(request) is None:
         return JSONResponse({"error": "Self-Service-Zugang ist nicht aktiv."}, status_code=403)
     # Honeypot: still als Erfolg quittieren, aber nichts senden.
     if website.strip():
@@ -390,7 +487,8 @@ async def zugang_code(request: Request, anrede: str = Form(""), name: str = Form
 @app.post("/zugang/verify")
 async def zugang_verify(request: Request, email: str = Form(""), code: str = Form("")):
     """Self-Service: prüft den Code und schaltet die Session frei."""
-    if not _selbst_zugang_offen():
+    wartend = _wartende_uebergabe(request)
+    if not _selbst_zugang_offen() and wartend is None:
         return JSONResponse({"error": "Self-Service-Zugang ist nicht aktiv."}, status_code=403)
 
     email = email.strip().lower()
@@ -429,7 +527,18 @@ async def zugang_verify(request: Request, email: str = Form(""), code: str = For
         "email": email,
     }
     try:
-        offer.notify_selbst_zugang(email, eintrag.get("anrede") or "", eintrag.get("name") or "")
+        # Kam der Besucher mit einer Schätzung aus dem Aufwandsrechner und hat genau deren
+        # Adresse bestätigt, bekommt Ralf die Schätzung gleich mit.
+        if (wartend is not None and (wartend.get("email") or "") == email
+                and db.uebergabe_einloesen(wartend["token"])):
+            offer.notify_uebergabe(email, eintrag.get("anrede") or "",
+                                   eintrag.get("name") or "", wartend.get("kontext") or "")
+        else:
+            # Andere Adresse bestätigt als die der Übergabe: die Schätzung gehört nicht
+            # dazu. Übergabe vergessen, sonst käme die Code-Eingabe immer wieder.
+            request.session.pop("uebergabe", None)
+            offer.notify_selbst_zugang(email, eintrag.get("anrede") or "",
+                                       eintrag.get("name") or "")
     except Exception as e:  # noqa: BLE001
         logger.error("Info-Mail Self-Service-Zugang fehlgeschlagen: %s", e)
     return JSONResponse({"ok": True, "redirect": "/"})
@@ -592,12 +701,18 @@ async def chat(request: Request):
                 {"error": "Zu viele Gespräche von dieser Verbindung. Bitte später erneut versuchen."},
                 status_code=429,
             )
-        db.create_session(session_id, ip, _thema(request)["schluessel"])
+        ueber = _bestaetigte_uebergabe(request) or {}
+        kontext_neu = ueber.get("kontext") or ""
+        db.create_session(
+            session_id, ip, _thema(request)["schluessel"], kontext_neu,
+            kontakt_email=(request.session.get("kontakt") or {}).get("email") or "",
+            schaetzung_pdf=ueber.get("pdf"), schaetzung_name=ueber.get("pdf_name") or "")
         # Die feste Eröffnungs-Begrüssung (clientseitig bereits angezeigt und vorgelesen) als
         # erste Assistenten-Nachricht ablegen, damit der Agent sie nicht wiederholt und nahtlos
         # an die Antwort des Kunden anschliesst.
         db.add_message(session_id, "assistant",
-                       agent.begruessung(request.session.get("kontakt") or {}, _thema(request)))
+                       agent.begruessung(request.session.get("kontakt") or {}, _thema(request),
+                                         bool(kontext_neu)))
 
     # Kombinierte Kostenbremse: Turns ODER Token. Was zuerst die Hard-Schwelle erreicht,
     # beendet das Gespräch; die Soft-Schwelle lässt den Agenten sanft zum Abschluss überleiten.
@@ -621,11 +736,15 @@ async def chat(request: Request):
     history = db.get_history(session_id)
     kontakt = request.session.get("kontakt") or {}
     thema = _thema(request)
+    # Aus dem Gespräch gelesen, nicht aus der Sitzung: gilt für jede Runde dieses Gesprächs,
+    # auch wenn die Übergabe inzwischen aufgeräumt ist.
+    kontext = db.get_session_kontext(session_id)
 
     def event_stream():
         try:
             for ev in agent.stream_reply(session_id, history, wind_down=wind_down,
-                                         kontakt=kontakt, beenden=beenden, thema=thema):
+                                         kontakt=kontakt, beenden=beenden, thema=thema,
+                                         kontext=kontext):
                 yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
         except Exception as e:  # noqa: BLE001
             logger.error("Chat-Stream-Fehler: %s", e)
@@ -638,30 +757,64 @@ async def chat(request: Request):
     )
 
 
+def _freigabe_seite(request: Request, row: dict, status: str, fehler: str = "",
+                    text: str | None = None, code: int = 200):
+    data = json.loads(row["data_json"])
+    kunde = data.get("kunde", {})
+    return templates.TemplateResponse(
+        "freigabe.html",
+        {"request": request, "status": status, "kunde": kunde,
+         "titel": data.get("projekt_titel", ""), "token": row["freigabe_token"],
+         "text": offer.freigabe_standardtext(data) if text is None else text,
+         "bestaetigt": offer.adresse_bestaetigt(row["session_id"], kunde.get("email") or ""),
+         "mit_schaetzung": bool(data.get("anhang_aufwandsschaetzung")),
+         "gesendeter_text": row.get("freigabe_text") or "", "fehler": fehler,
+         "hoechstens": offer.NACHRICHT_HOECHSTENS},
+        status_code=code,
+    )
+
+
 @app.get("/freigabe/{token}", response_class=HTMLResponse)
 async def freigabe(request: Request, token: str):
+    """Zeigt die Freigabe-Seite mit Ralfs Text an den Kunden. Sendet **nichts**: Links in
+    Mails werden von Mail-Programmen und Filtern auch ohne Klick abgerufen."""
     row = db.get_offer_by_token(token)
     if row is None:
         return templates.TemplateResponse(
-            "freigabe.html",
-            {"request": request, "status": "unbekannt"},
-            status_code=404,
-        )
+            "freigabe.html", {"request": request, "status": "unbekannt"}, status_code=404)
+    return _freigabe_seite(request, row, "bereits" if row.get("released_at") else "entwurf")
 
-    already = bool(row.get("released_at"))
+
+@app.post("/freigabe/{token}", response_class=HTMLResponse)
+async def freigabe_senden(request: Request, token: str, nachricht: str = Form("")):
+    row = db.get_offer_by_token(token)
+    if row is None:
+        return templates.TemplateResponse(
+            "freigabe.html", {"request": request, "status": "unbekannt"}, status_code=404)
+    if row.get("released_at"):
+        return _freigabe_seite(request, row, "bereits")
     try:
-        offer.release_to_customer(token)
-        status = "bereits" if already else "gesendet"
+        ergebnis = await asyncio.get_running_loop().run_in_executor(
+            None, offer.release_to_customer, token, nachricht)
     except Exception as e:  # noqa: BLE001
         logger.error("Freigabe-Versand fehlgeschlagen: %s", e)
-        status = "fehler"
+        return _freigabe_seite(request, row, "entwurf", text=nachricht, code=502,
+                               fehler="Der Versand ist fehlgeschlagen. Ihr Text steht noch im "
+                                      "Feld; bitte später erneut versuchen.")
+    if (ergebnis or {}).get("nicht_bestaetigt"):
+        return _freigabe_seite(request, row, "entwurf", text=nachricht)
+    return _freigabe_seite(request, db.get_offer_by_token(token), "gesendet")
 
-    data = json.loads(row["data_json"])
-    return templates.TemplateResponse(
-        "freigabe.html",
-        {"request": request, "status": status, "kunde": data.get("kunde", {}),
-         "titel": data.get("projekt_titel", "")},
-    )
+
+@app.get("/freigabe/{token}/pdf")
+async def freigabe_pdf(token: str):
+    """Das PDF, das mit der Freigabe hinausgeht – zum Ansehen vor dem Senden."""
+    row = db.get_offer_by_token(token)
+    if row is None or not row.get("pdf_path") or not os.path.exists(row["pdf_path"]):
+        return Response(status_code=404)
+    return FileResponse(row["pdf_path"], media_type="application/pdf",
+                        headers={"Content-Disposition": 'inline; filename="offerte.pdf"',
+                                 "Cache-Control": "private, no-store"})
 
 
 @app.post("/chat/stt")
@@ -712,7 +865,7 @@ async def begruessung_audio(request: Request):
     if not _zugang_erlaubt(request):
         return JSONResponse({"error": "zugang"}, status_code=403)
     kontakt = request.session.get("kontakt") or {}
-    text = agent.begruessung(kontakt, _thema(request))
+    text = agent.begruessung(kontakt, _thema(request), bool(_kontext(request)))
     audio = _begruessung_audio_cache.get(text)
     if audio is None:
         try:
