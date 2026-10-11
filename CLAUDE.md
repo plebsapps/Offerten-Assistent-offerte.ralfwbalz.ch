@@ -66,7 +66,8 @@ Keine Tests/Linter konfiguriert.
   direkt per E-Mail versenden via `offer.send_invitation`; listet auch die Self-Service-Anmeldungen),
   `/admin/gespraeche` (+ Transkript), `/admin/offerten` (PDF-Download +
   Freigabe an Kunden via `offer.release_to_customer`), `/admin/einstellungen` (Limit-Schwellen +
-  KI-Anbieter-Toggle pflegen).
+  KI-Anbieter-Toggle pflegen; darunter Links zu den Abrechnungsseiten von Anthropic und OpenAI,
+  weil beide mit vorausbezahltem Guthaben laufen).
 - **`auth.py`** – prüft das Anmelde-Cookie `rwb_zugang` der Hauptseite (`ist_angemeldet`,
   `require_admin`, `NichtAngemeldet`) und bei schreibenden Anfragen die Herkunft. Kein
   Passwort, kein Benutzer, kein bcrypt mehr in dieser App.

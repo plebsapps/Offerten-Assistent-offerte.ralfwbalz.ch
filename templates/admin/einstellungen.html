@@ -12,6 +12,17 @@
       <option value="openai" {% if ki_anbieter == "openai" %}selected{% endif %}>ChatGPT (OpenAI)</option>
     </select>
   </label>
+  {# Guthaben der beiden Anbieter: Links auf deren Abrechnungsseiten (Anmeldung dort nötig). #}
+  <p class="muted" style="margin:6px 0 14px">
+    Guthaben prüfen und aufladen:
+    <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener"
+       style="{{ 'font-weight:700' if ki_anbieter == 'claude' else '' }}">Claude (Anthropic)</a>
+    &middot;
+    <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener"
+       style="{{ 'font-weight:700' if ki_anbieter == 'openai' else '' }}">ChatGPT (OpenAI)</a><br>
+    OpenAI wird in jedem Fall gebraucht: Sprach-Ein- und -Ausgabe laufen darüber, auch wenn
+    Claude das Gespräch führt.
+  </p>
   <button type="submit" class="btn-primary">Speichern</button>
 </form>
 
