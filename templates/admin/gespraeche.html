@@ -14,7 +14,7 @@
   <tbody>
     {% for g in gespraeche %}
     <tr>
-      <td class="muted">{{ g.created_at }}</td>
+      <td class="muted">{{ g.created_at|zeit }}</td>
       <td class="muted">{{ g.ip or "–" }}</td>
       <td>{{ g.anzeige or "–" }}</td>
       <td>{{ g.user_turns }}</td>

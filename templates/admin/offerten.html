@@ -13,7 +13,7 @@
   <tbody>
     {% for o in offerten %}
     <tr>
-      <td class="muted">{{ o.created_at }}</td>
+      <td class="muted">{{ o.created_at|zeit }}</td>
       <td>{{ o.daten.projekt_titel or "–" }}</td>
       <td>
         {{ o.daten.kunde.name or "–" }}
@@ -22,7 +22,7 @@
       <td>
         {% if o.released_at %}
         <span class="badge badge-gruen">freigegeben</span>
-        <div class="muted">{{ o.released_at }}</div>
+        <div class="muted">{{ o.released_at|zeit }}</div>
         {% else %}
         <span class="badge badge-gelb">nur an Ralf</span>
         {% endif %}

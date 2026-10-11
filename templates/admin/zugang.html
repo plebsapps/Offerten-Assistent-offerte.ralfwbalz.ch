@@ -80,7 +80,7 @@
   <div class="zugang-link-meta">
     <span><span class="meta-label">E-Mail:</span> {{ a.email }}</span>
     <span><span class="meta-label">Anrede:</span> {{ a.anrede or "–" }}</span>
-    <span><span class="meta-label">Freigeschaltet:</span> {{ a.verifiziert_am }}</span>
+    <span><span class="meta-label">Freigeschaltet:</span> {{ a.verifiziert_am|zeit }}</span>
   </div>
 </div>
 {% endfor %}
@@ -106,9 +106,9 @@
   <div class="zugang-link-meta">
     <span><span class="meta-label">Empfänger:</span> {{ l.empfaenger_email or "–" }}</span>
     {% if l.notiz %}<span><span class="meta-label">Notiz:</span> {{ l.notiz }}</span>{% endif %}
-    <span><span class="meta-label">Erstellt:</span> {{ l.created_at }}</span>
-    <span><span class="meta-label">Gültig bis:</span> {{ l.gueltig_bis or "unbegrenzt" }}</span>
-    <span><span class="meta-label">Zuletzt genutzt:</span> {{ l.letzte_nutzung or "–" }}</span>
+    <span><span class="meta-label">Erstellt:</span> {{ l.created_at|zeit }}</span>
+    <span><span class="meta-label">Gültig bis:</span> {{ l.gueltig_bis|zeit("unbegrenzt") }}</span>
+    <span><span class="meta-label">Zuletzt genutzt:</span> {{ l.letzte_nutzung|zeit }}</span>
   </div>
 
   <div class="zugang-link-aktionen">

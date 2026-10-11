@@ -14,7 +14,8 @@ import pathlib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -28,6 +29,32 @@ DATA_DIR = os.environ.get("DATA_DIR", "/data")
 OFFERS_DIR = os.path.join(DATA_DIR, "offers")
 ROLE_LABEL = {"user": "Kunde", "assistant": "Assistent"}
 
+ZEITZONE = ZoneInfo("Europe/Zurich")
+
+
+def ortszeit(wert: str | None = None) -> datetime | None:
+    """Zeit in Europe/Zurich. Die Datenbank speichert ohne Zone in der Zeit des Containers
+    (UTC) – so bleibt, was gespeichert und verglichen wird, einheitlich; umgerechnet wird
+    erst für die Anzeige. Ohne Argument: jetzt."""
+    if wert is None:
+        return datetime.now(timezone.utc).astimezone(ZEITZONE)
+    try:
+        zeit = datetime.fromisoformat(str(wert))
+    except ValueError:
+        return None
+    if zeit.tzinfo is None:
+        zeit = zeit.astimezone()        # als Zeit des Containers lesen
+    return zeit.astimezone(ZEITZONE)
+
+
+def zeit_text(wert: str | None, leer: str = "–") -> str:
+    """ISO-Zeit aus der Datenbank als «TT.MM.JJJJ HH:MM» in Ortszeit."""
+    if not wert:
+        return leer
+    zeit = ortszeit(wert)
+    return zeit.strftime("%d.%m.%Y %H:%M") if zeit else str(wert)
+
+
 _env = Environment(
     loader=FileSystemLoader("templates"),
     autoescape=select_autoescape(["html"]),
@@ -39,7 +66,7 @@ def _render_pdf(data: dict) -> bytes:
 
     html = _env.get_template("offer_pdf.html").render(
         o=data,
-        erstellt=datetime.now().strftime("%d.%m.%Y um %H:%M Uhr"),
+        erstellt=ortszeit().strftime("%d.%m.%Y um %H:%M Uhr"),
     )
     return HTML(string=html, base_url=".").write_pdf()
 
@@ -154,7 +181,7 @@ def _send_to_ralf(data: dict, history: list[dict], pdf_bytes: bytes, token: str,
         transcript=transcript,
         anzeige=anzeige,
         mit_schaetzung=mit_schaetzung,
-        erstellt=datetime.now().strftime("%d.%m.%Y um %H:%M Uhr"),
+        erstellt=ortszeit().strftime("%d.%m.%Y um %H:%M Uhr"),
     )
     plain = (
         f"Neue Offerten-Grundlage: {titel}\n\n"
@@ -422,7 +449,7 @@ def send_kurzanfrage_code(empfaenger_email: str, code: str, ttl_min: int = 10) -
 
 def send_kurzanfrage_an_ralf(thema: str, text: str, email: str) -> None:
     """Bestätigte Kurzanfrage an Ralf (CONTACT_EMAIL), Reply-To der Besucher."""
-    zeitpunkt = datetime.now().strftime("%d.%m.%Y um %H:%M Uhr")
+    zeitpunkt = ortszeit().strftime("%d.%m.%Y um %H:%M Uhr")
     plain = (
         "Neue Kurzanfrage über offerte.ralfwbalz.ch (E-Mail-Adresse bestätigt):\n\n"
         f"Thema:     {thema}\n"
@@ -456,7 +483,7 @@ def notify_uebergabe(empfaenger_email: str, anrede: str, name: str, kontext: str
     if not empfaenger:
         return
     person = " ".join(t for t in (anrede, name) if t).strip() or "—"
-    zeitpunkt = datetime.now().strftime("%d.%m.%Y um %H:%M Uhr")
+    zeitpunkt = ortszeit().strftime("%d.%m.%Y um %H:%M Uhr")
     plain = (
         "Jemand ist mit einer Schätzung aus dem Aufwandsrechner in den Offerten-Assistenten "
         "gekommen:\n\n"
@@ -489,7 +516,7 @@ def notify_selbst_zugang(empfaenger_email: str, anrede: str = "", name: str = ""
     if not empfaenger:
         return
     person = " ".join(t for t in (anrede, name) if t).strip() or "—"
-    zeitpunkt = datetime.now().strftime("%d.%m.%Y um %H:%M Uhr")
+    zeitpunkt = ortszeit().strftime("%d.%m.%Y um %H:%M Uhr")
     plain = (
         "Neue Self-Service-Anmeldung am Offerten-Assistenten:\n\n"
         f"Name/Anrede: {person}\n"

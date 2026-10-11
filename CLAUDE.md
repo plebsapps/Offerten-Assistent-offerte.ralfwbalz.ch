@@ -174,6 +174,12 @@ Keine Tests/Linter konfiguriert.
   in `offers.freigabe_text` vermerkt und ist im Admin aufklappbar. Vorher löste schon der
   Abruf des Links den Versand aus – auch durch Mail-Scanner. Der Admin-Knopf führt auf
   dieselbe Seite; den Endpunkt `POST /admin/offerten/{token}/freigeben` gibt es nicht mehr.
+- **Zeiten**: Der Container läuft in UTC, und `db.py` speichert Zeiten ohne Zone als
+  ISO-Text – darauf beruhen alle Vergleiche (Ablauf von Codes und Links). Umgerechnet wird
+  nur für die Anzeige: `offer.ortszeit()` / `offer.zeit_text()` liefern Europe/Zurich, der
+  Admin nutzt das als Jinja-Filter `zeit` («TT.MM.JJJJ HH:MM»), die Mails an Ralf und das
+  Offerten-PDF für ihren Zeitstempel. Bis 11.10.2026 standen dort ISO-Zeiten bzw. UTC.
+  Kein `TZ` im Container setzen: sonst mischten sich alte UTC- und neue Ortszeit-Werte.
 - **Kein Zwischenschritt vor dem Chat** (seit 11.10.2026): `app.js` ruft beim Laden `starten()`
   auf – Begrüssung als erste Blase, Eingabefeld im Fokus. Die frühere Seite mit «Gespräch
   starten / doch nicht starten» steht nur noch für Browser ohne Skript im Markup. Der Knopf

@@ -24,6 +24,8 @@ import themen
 
 logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory="templates")
+# Zeiten im Admin: «TT.MM.JJJJ HH:MM» in Europe/Zurich statt der gespeicherten ISO-Zeit (UTC).
+templates.env.filters["zeit"] = offer.zeit_text
 router = APIRouter()
 
 
