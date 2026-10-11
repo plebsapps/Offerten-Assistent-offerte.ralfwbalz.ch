@@ -202,11 +202,42 @@
 
   function playGreeting() {
     if (!begruessung || !el.ttsToggle.checked) return;
-    if (greetingAudioUrl) { playUrl(greetingAudioUrl, speakGen); return; }
+    if (greetingAudioUrl) { greetingAbspielen(greetingAudioUrl); return; }
     fetch("/begruessung.mp3")
       .then((r) => (r.ok ? r.blob() : null))
-      .then((b) => { if (b) playUrl(URL.createObjectURL(b), speakGen); })
+      .then((b) => { if (b) greetingAbspielen(URL.createObjectURL(b)); })
       .catch(() => { /* kein Audio – Text steht trotzdem */ });
+  }
+
+  // Das Gespräch beginnt ohne Klick, sobald die Seite da ist. Ohne vorangegangene
+  // Benutzeraktion verweigern Browser oft die Tonwiedergabe: dann wird die Begrüssung beim
+  // ersten Antippen der Seite nachgeholt – solange der Kunde noch nicht geantwortet hat und
+  // nicht gerade das Mikrofon antippt (sonst spräche der Assistent in die Aufnahme).
+  function greetingAbspielen(url) {
+    const gen = speakGen;
+    const audio = new Audio(url);
+    currentAudio = audio;
+    const fertig = () => {
+      if (currentAudio === audio) currentAudio = null;
+      resolveTTSIdle();
+    };
+    audio.onended = fertig;
+    audio.onerror = fertig;
+    audio.play().catch(() => {
+      fertig();
+      const nachholen = (e) => {
+        document.removeEventListener("pointerdown", nachholen, true);
+        if (gen !== speakGen || kundenNachrichten > 0 || !el.ttsToggle.checked) return;
+        if (e.target && e.target.closest && e.target.closest("#micBtn, #endBtn")) return;
+        const zweiter = new Audio(url);
+        currentAudio = zweiter;
+        const ende = () => { if (currentAudio === zweiter) currentAudio = null; resolveTTSIdle(); };
+        zweiter.onended = ende;
+        zweiter.onerror = ende;
+        zweiter.play().catch(ende);
+      };
+      document.addEventListener("pointerdown", nachholen, true);
+    });
   }
 
   // Zerlegt den Puffer in vollständige Sätze (Satzende + folgendes Leerzeichen) und gibt
@@ -388,7 +419,12 @@
   }
 
   // --- Start ---
-  el.startBtn.addEventListener("click", () => {
+  // Ohne Zwischenseite: wer hier ankommt, hat seine Adresse bestätigt (oder einen
+  // Einladungslink) und will reden. Der frühere Knopf «Gespräch starten» entfällt.
+  let gestartet = false;
+  function starten() {
+    if (gestartet) return;
+    gestartet = true;
     el.intro.classList.add("hidden");
     el.chat.classList.remove("hidden");
     // Feste Begrüssung sofort zeigen und (vorsynthetisiert) vorlesen. Der Kunde antwortet
@@ -398,7 +434,9 @@
       playGreeting();
     }
     el.textInput.focus();
-  });
+  }
+  // Der Knopf steht nur noch für Browser ohne dieses Skript in der Seite.
+  if (el.startBtn) el.startBtn.addEventListener("click", starten);
 
   // --- Gespräch beenden ---
   // Mit bisherigem Gesprächsstand: der Server erzwingt „offerte_erstellen“, danach läuft
@@ -418,10 +456,10 @@
     sendMessage("Ich möchte das Gespräch jetzt beenden.", true);
   });
 
-  prefetchGreeting();
-
   el.composer.addEventListener("submit", (e) => {
     e.preventDefault();
     sendMessage(el.textInput.value);
   });
+
+  starten();
 })();

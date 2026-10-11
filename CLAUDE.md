@@ -174,6 +174,12 @@ Keine Tests/Linter konfiguriert.
   in `offers.freigabe_text` vermerkt und ist im Admin aufklappbar. Vorher löste schon der
   Abruf des Links den Versand aus – auch durch Mail-Scanner. Der Admin-Knopf führt auf
   dieselbe Seite; den Endpunkt `POST /admin/offerten/{token}/freigeben` gibt es nicht mehr.
+- **Kein Zwischenschritt vor dem Chat** (seit 11.10.2026): `app.js` ruft beim Laden `starten()`
+  auf – Begrüssung als erste Blase, Eingabefeld im Fokus. Die frühere Seite mit «Gespräch
+  starten / doch nicht starten» steht nur noch für Browser ohne Skript im Markup. Der Knopf
+  war auch die Benutzeraktion, die den Ton freischaltete: ohne sie blockieren Browser die
+  Wiedergabe oft, darum holt `greetingAbspielen()` die Begrüssung beim ersten Antippen der
+  Seite nach (nicht beim Mikrofon, und nicht mehr, sobald der Kunde geantwortet hat).
 - **Kurzanfrage** (`GET /kurzanfrage`, `templates/kurzanfrage.html`): der schnelle Weg ohne
   Gespräch, verlinkt von `einladung.html` (Button rechts neben LinkedIn, darüber ein grosses
   „ODER“; nur bei aktivem Self-Service). **Unabhängig vom Zugangsmodus** erreichbar, indexierbar,
