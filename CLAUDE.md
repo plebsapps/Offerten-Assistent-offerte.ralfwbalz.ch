@@ -166,6 +166,14 @@ Keine Tests/Linter konfiguriert.
   Freigabe; ob es geklappt hat, steht als `anhang_aufwandsschaetzung` in `data_json`. Lässt
   sich das PDF des Rechners nicht lesen, bleibt die Offerte allein. Der Kunde bekommt am
   Gesprächsende **nichts** – alles geht erst mit Ralfs Freigabe hinaus.
+  **Rückmeldung an den Rechner** (seit 11.10.2026): schickt der Rechner in der Übergabe eine
+  Kennung `rueckruf` mit (`uebergaben.rueckruf`), meldet `zugang_verify` nach dem bestätigten
+  Code im Hintergrund `POST {AUFWANDSRECHNER_URL}/api/uebergabe/gestartet` zurück
+  (`uebergabe.rueckruf_melden`, signiert mit eigenem Schlüssel-Präfix `uebergabe-rueckruf|`,
+  genau einmal, weil `db.uebergabe_einloesen` nur beim ersten Mal True liefert). Der Rechner
+  zählt daraus seine Conversion für OpenAI Ads; diese App weiss davon nichts, sendet nichts
+  an OpenAI Ads und schickt ausser der Kennung nichts mit. Scheitert der Aufruf, steht es
+  nur im Log – das Gespräch läuft.
 - **Freigabe mit eigenem Text** (seit 11.10.2026): Der Link in Ralfs Mail
   (`GET /freigabe/{token}`) **sendet nicht mehr**, er zeigt eine Seite mit Empfänger, Link
   zum PDF (`/freigabe/{token}/pdf`) und einem Textfeld, vorbelegt mit

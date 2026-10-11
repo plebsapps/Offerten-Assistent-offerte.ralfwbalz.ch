@@ -15,9 +15,15 @@ import base64
 import binascii
 import hashlib
 import hmac
+import json
+import logging
 import os
 import re
 import time
+import urllib.error
+import urllib.request
+
+logger = logging.getLogger("offerte.uebergabe")
 
 KOPF_ZEIT = "x-uebergabe-zeit"
 KOPF_SIGNATUR = "x-uebergabe-signatur"
@@ -31,6 +37,9 @@ KONTEXT_HOECHSTENS = 8000
 PDF_HOECHSTENS = 400_000
 RUMPF_HOECHSTENS = 600_000
 _NUMMER = re.compile(r"AR-\d{4}-\d{5,}")
+# Kennung, mit der der Rechner die Rückmeldung «Gespräch hat begonnen» wünscht.
+_RUECKRUF = re.compile(r"[A-Za-z0-9_-]{16,64}")
+RUECKRUF_ZEITLIMIT = 8
 
 
 def _schluessel() -> bytes | None:
@@ -64,3 +73,34 @@ def pdf_lesen(roh, nummer) -> tuple[bytes | None, str]:
     # Den Dateinamen selbst bilden, nie einen gelieferten übernehmen.
     nummer = nummer if isinstance(nummer, str) and _NUMMER.fullmatch(nummer) else ""
     return inhalt, f"Aufwandsschaetzung_{nummer}.pdf" if nummer else "Aufwandsschaetzung.pdf"
+
+
+def rueckruf_lesen(roh) -> str:
+    """Die Kennung aus dem Rumpf – oder '' (dann gibt es keine Rückmeldung)."""
+    return roh if isinstance(roh, str) and _RUECKRUF.fullmatch(roh) else ""
+
+
+def rueckruf_melden(rechner_url: str, kennung: str) -> bool:
+    """Meldet dem Aufwandsrechner von Server zu Server, dass das Gespräch zu einer Übergabe
+    begonnen hat (``POST /api/uebergabe/gestartet``). Der Rechner zählt daraus seine
+    Conversion; diese App weiss nicht wofür und schickt nichts ausser der Kennung.
+
+    Eigener Schlüssel (Präfix ``uebergabe-rueckruf|``), damit eine Übergabe nie als
+    Rückmeldung taugt. Wirft nie: scheitert der Aufruf, läuft das Gespräch trotzdem."""
+    geheim = os.environ.get("ZUGANG_SCHLUESSEL", "").strip()
+    if len(geheim) < 32 or not _RUECKRUF.fullmatch(kennung or ""):
+        return False
+    schluessel = hashlib.sha256(("uebergabe-rueckruf|" + geheim).encode()).digest()
+    rumpf = json.dumps({"rueckruf": kennung}).encode()
+    zeit = str(int(time.time()))
+    signatur = hmac.new(schluessel, zeit.encode() + b"." + rumpf, hashlib.sha256).hexdigest()
+    anfrage = urllib.request.Request(
+        f"{rechner_url}/api/uebergabe/gestartet", data=rumpf, method="POST",
+        headers={"Content-Type": "application/json", KOPF_ZEIT: zeit, KOPF_SIGNATUR: signatur,
+                 "User-Agent": "offerte"})
+    try:
+        with urllib.request.urlopen(anfrage, timeout=RUECKRUF_ZEITLIMIT) as antwort:
+            return 200 <= antwort.status < 300
+    except (urllib.error.URLError, TimeoutError, OSError) as fehler:
+        logger.error("Rückmeldung an den Aufwandsrechner fehlgeschlagen: %s", fehler)
+        return False

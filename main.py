@@ -100,8 +100,9 @@ templates.env.globals["homepage_url"] = HOMEPAGE_URL
 # routes_admin hat eine eigene Jinja-Umgebung; nur die Admin-Templates binden die Leiste ein.
 routes_admin.templates.env.globals["intern_haupt"] = HOMEPAGE_URL
 routes_admin.templates.env.globals["intern_offerte"] = ""
-routes_admin.templates.env.globals["intern_rechner"] = os.environ.get(
+AUFWANDSRECHNER_URL = os.environ.get(
     "AUFWANDSRECHNER_URL", "https://aufwandsrechner.ralfwbalz.ch").rstrip("/")
+routes_admin.templates.env.globals["intern_rechner"] = AUFWANDSRECHNER_URL
 # Logo der gemeinsamen Fussleiste (templates/_footer.html, Kopie aus ralfwbalz/).
 templates.env.globals["fuss_logo"] = "/static/img/logo-ralfwbalz.svg"
 
@@ -418,6 +419,7 @@ async def uebergabe_annehmen(request: Request):
         thema = str(daten.get("thema") or "").strip()
         kontext = str(daten.get("kontext") or "").strip()[:uebergabe.KONTEXT_HOECHSTENS]
         pdf, pdf_name = uebergabe.pdf_lesen(daten.get("pdf"), daten.get("nummer"))
+        rueckruf = uebergabe.rueckruf_lesen(daten.get("rueckruf"))
     except (ValueError, AttributeError):
         return JSONResponse({"error": "Ungültige Daten."}, status_code=400)
     if not _email_plausibel(email) or not name or anrede not in uebergabe.ANREDEN or not kontext:
@@ -439,7 +441,7 @@ async def uebergabe_annehmen(request: Request):
         logger.error("Zugangscode-Mail (Übergabe) fehlgeschlagen: %s", e)
         return JSONResponse({"error": "Der Code konnte nicht versendet werden."}, status_code=502)
     db.create_uebergabe(token, anrede, name, email, thema if themen.bekannt(thema) else "",
-                        kontext, gueltig_bis, pdf, pdf_name)
+                        kontext, gueltig_bis, pdf, pdf_name, rueckruf)
     return JSONResponse({"token": token, "url": f"{settings.basis_url()}/?u={token}"})
 
 
@@ -531,6 +533,11 @@ async def zugang_verify(request: Request, email: str = Form(""), code: str = For
         # Adresse bestätigt, bekommt Ralf die Schätzung gleich mit.
         if (wartend is not None and (wartend.get("email") or "") == email
                 and db.uebergabe_einloesen(wartend["token"])):
+            if wartend.get("rueckruf"):
+                # Dem Rechner melden, dass das Gespräch jetzt beginnt – im Hintergrund,
+                # die Antwort an den Besucher wartet nicht darauf.
+                asyncio.get_running_loop().run_in_executor(
+                    None, uebergabe.rueckruf_melden, AUFWANDSRECHNER_URL, wartend["rueckruf"])
             offer.notify_uebergabe(email, eintrag.get("anrede") or "",
                                    eintrag.get("name") or "", wartend.get("kontext") or "")
         else:

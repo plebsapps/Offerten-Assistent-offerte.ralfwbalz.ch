@@ -125,7 +125,8 @@ def init() -> None:
             pass  # Spalte existiert bereits
         # Migration: PDF der Schätzung aus dem Aufwandsrechner – an der Übergabe und, sobald
         # das Gespräch beginnt, am Gespräch (dort lebt es so lange wie dieses).
-        for tabelle, spalten in (("uebergaben", ("pdf BLOB", "pdf_name TEXT")),
+        for tabelle, spalten in (("uebergaben", ("pdf BLOB", "pdf_name TEXT",
+                                                "rueckruf TEXT NOT NULL DEFAULT ''")),
                                  ("sessions", ("schaetzung_pdf BLOB", "schaetzung_name TEXT"))):
             for spalte in spalten:
                 try:
@@ -201,12 +202,13 @@ def get_session_kontext(session_id: str) -> str:
 
 def create_uebergabe(token: str, anrede: str, name: str, email: str, thema: str,
                      kontext: str, gueltig_bis: str, pdf: bytes | None = None,
-                     pdf_name: str = "") -> None:
+                     pdf_name: str = "", rueckruf: str = "") -> None:
     with _conn() as c:
         c.execute(
             "INSERT INTO uebergaben (token, created_at, gueltig_bis, anrede, name, email, "
-            "thema, kontext, pdf, pdf_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (token, _now(), gueltig_bis, anrede, name, email, thema, kontext, pdf, pdf_name),
+            "thema, kontext, pdf, pdf_name, rueckruf) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (token, _now(), gueltig_bis, anrede, name, email, thema, kontext, pdf, pdf_name,
+             rueckruf),
         )
 
 
